@@ -1,2 +1,2 @@
 # l.autolabelSA
-Auto-label pluginfor leaflet
+Auto-label plugin for leaflet
