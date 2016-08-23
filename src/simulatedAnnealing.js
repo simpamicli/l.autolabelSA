@@ -1,3 +1,5 @@
+'use strict';
+
 var geomEssentials = require("./geomEssentials.js");
 
 var simulatedAnnealing = {

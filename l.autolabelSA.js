@@ -47,8 +47,6 @@
 	(function () {
 	  "use strict";
 
-	   //TODO [general] rename to SAPolyline for now
-	   //TODO [general] split in separate files
 	   //TODO [general] test with diffenrent files
 	   //TODO [general] add point and polygon labeling
 	   //TODO [general] add text along path support
@@ -194,8 +192,7 @@
 	        if(allsegs.length==0){
 	          this.clearNodes();
 	          return;
-	        }
-	        //TODO do as promise
+	        }        
 	        simulatedAnnealing.perform(allsegs,{},this.renderNodes,this);
 	      }
 	    },
@@ -386,7 +383,7 @@
 /***/ function(module, exports) {
 
 	//a class to perfrom geometric stuff
-	/** @namespace AutoLabelingSupport*/
+	/** @namespace geomEssentials*/
 	var geomEssentials = {
 	  /**
 	  check if segment from a to b is longer then minlen

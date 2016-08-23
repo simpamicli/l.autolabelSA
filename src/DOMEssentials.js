@@ -1,6 +1,6 @@
 //a class to compute pixel dimensions of texts
 /** @namespace DOMEssentials*/
-
+'use strict';
 var geomEssentials = require("./geomEssentials.js");
 
 var DOMEssentials = {
