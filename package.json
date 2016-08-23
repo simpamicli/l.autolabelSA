@@ -1,7 +1,7 @@
 {
   "name": "l.autolabelSA",
   "version": "0.0.1",
-  "description": "plugin for which adds autolabelling",
+  "description": "plugin for leaflet which adds autolabelling",
   "main": "./l.autolabelSA.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

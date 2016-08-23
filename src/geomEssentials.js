@@ -1,5 +1,5 @@
 //a class to perfrom geometric stuff
-/** @namespace AutoLabelingSupport*/
+/** @namespace geomEssentials*/
 var geomEssentials = {
   /**
   check if segment from a to b is longer then minlen
