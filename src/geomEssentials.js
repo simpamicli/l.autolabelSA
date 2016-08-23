@@ -151,3 +151,5 @@ var geomEssentials = {
     return res;
   }
 }
+
+module.exports = geomEssentials;

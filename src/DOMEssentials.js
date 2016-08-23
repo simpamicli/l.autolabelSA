@@ -41,3 +41,5 @@ var DOMEssentials = {
     return node;
   }
 }
+
+module.export = DOMEssentials;

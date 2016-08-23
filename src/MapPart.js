@@ -6,7 +6,11 @@
    //TODO [general] test with diffenrent files
    //TODO [general] add point and polygon labeling
    //TODO [general] add text along path support
-   //TODO [general] do everything async
+
+  var DOMEssentials = require('./DOMEssentials.js');
+  var geomEssentials = require('./geomEssentials.js');
+  var simulatedAnnealing = require('./simulatedAnnealing.js');
+
 
   var __onRemove = L.LayerGroup.prototype.onRemove;
 

@@ -278,3 +278,5 @@ var simulatedAnnealing = {
       }
   }
 }
+
+module.exports = simulatedAnnealing;
