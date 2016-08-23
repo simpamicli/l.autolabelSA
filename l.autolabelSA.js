@@ -330,7 +330,7 @@
 
 	//a class to compute pixel dimensions of texts
 	/** @namespace DOMEssentials*/
-
+	'use strict';
 	var geomEssentials = __webpack_require__(2);
 
 	var DOMEssentials = {
@@ -384,6 +384,7 @@
 
 	//a class to perfrom geometric stuff
 	/** @namespace geomEssentials*/
+	'use strict';
 	var geomEssentials = {
 	  /**
 	  check if segment from a to b is longer then minlen
@@ -542,6 +543,8 @@
 /***/ },
 /* 3 */
 /***/ function(module, exports, __webpack_require__) {
+
+	'use strict';
 
 	var geomEssentials = __webpack_require__(2);
 
