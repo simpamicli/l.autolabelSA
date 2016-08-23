@@ -1,3 +1,5 @@
+var geomEssentials = require("./geomEssentials.js");
+
 var simulatedAnnealing = {
   /**
   computes label candidate object to place on map

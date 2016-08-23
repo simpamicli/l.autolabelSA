@@ -1,5 +1,8 @@
 //a class to compute pixel dimensions of texts
 /** @namespace DOMEssentials*/
+
+var geomEssentials = require("./geomEssentials.js");
+
 var DOMEssentials = {
   /**
   converts TextRectangle object to clockwise array of 2d-arrays, representing rectangular poly
@@ -42,4 +45,4 @@ var DOMEssentials = {
   }
 }
 
-module.export = DOMEssentials;
+module.exports = DOMEssentials;

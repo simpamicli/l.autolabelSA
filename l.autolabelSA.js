@@ -54,8 +54,8 @@
 	   //TODO [general] add text along path support
 
 	  var DOMEssentials = __webpack_require__(1);
-	  var geomEssentials = __webpack_require__(3);
-	  var simulatedAnnealing = __webpack_require__(4);
+	  var geomEssentials = __webpack_require__(2);
+	  var simulatedAnnealing = __webpack_require__(3);
 
 
 	  var __onRemove = L.LayerGroup.prototype.onRemove;
@@ -331,8 +331,11 @@
 /* 1 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/* WEBPACK VAR INJECTION */(function(module) {//a class to compute pixel dimensions of texts
+	//a class to compute pixel dimensions of texts
 	/** @namespace DOMEssentials*/
+
+	var geomEssentials = __webpack_require__(2);
+
 	var DOMEssentials = {
 	  /**
 	  converts TextRectangle object to clockwise array of 2d-arrays, representing rectangular poly
@@ -375,28 +378,11 @@
 	  }
 	}
 
-	module.export = DOMEssentials;
+	module.exports = DOMEssentials;
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(2)(module)))
 
 /***/ },
 /* 2 */
-/***/ function(module, exports) {
-
-	module.exports = function(module) {
-		if(!module.webpackPolyfill) {
-			module.deprecate = function() {};
-			module.paths = [];
-			// module.parent = undefined by default
-			module.children = [];
-			module.webpackPolyfill = 1;
-		}
-		return module;
-	}
-
-
-/***/ },
-/* 3 */
 /***/ function(module, exports) {
 
 	//a class to perfrom geometric stuff
@@ -557,8 +543,10 @@
 
 
 /***/ },
-/* 4 */
-/***/ function(module, exports) {
+/* 3 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var geomEssentials = __webpack_require__(2);
 
 	var simulatedAnnealing = {
 	  /**
