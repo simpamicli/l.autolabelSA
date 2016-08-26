@@ -54,6 +54,7 @@
 	  var DOMEssentials = __webpack_require__(1);
 	  var geomEssentials = __webpack_require__(2);
 	  var simulatedAnnealing = __webpack_require__(3);
+	  var dataReader = __webpack_require__(4);
 
 
 	  var __onRemove = L.LayerGroup.prototype.onRemove;
@@ -114,7 +115,6 @@
 	    _layers2label:[], //an array to know which layergroups are to label
 	    _al_options:{}, //autolabel options for this map
 
-
 	    /**
 	    set global options for auto-labelling
 	    @param {OBject} opts: see code
@@ -131,7 +131,6 @@
 	    },
 
 	    _autoLabel:false, //to detrmine if autolabelling is set for this map
-
 	    /**
 	    toggles autolabeling
 	    @memberof MapAutoLabelSupport#
@@ -187,79 +186,15 @@
 	    doAutoLabel:function() {
 	      if(!this._autoLabel)return; //nothing to do here
 	      if(this.getZoom()>this._al_options.zoomToStartLabel){
-	        var pt  =this.readDataToLabel() //array for storing paths and values
-	        var allsegs=this.prepareCurSegments(pt,{minSegLen:5,maxlabelcount:50});
+	        dataReader._map=this;
+	        var pt  =dataReader.readDataToLabel() //array for storing paths and values
+	        var allsegs=dataReader.prepareCurSegments(pt,{minSegLen:5,maxlabelcount:50});
 	        if(allsegs.length==0){
 	          this.clearNodes();
 	          return;
-	        }        
+	        }
 	        simulatedAnnealing.perform(allsegs,{},this.renderNodes,this);
 	      }
-	    },
-
-	    /**
-	    creates an array of features's segments for each feature  of layers2label's layers on screen along with SVG text corresponding to
-	    @returns [Array] returns an array with values : {t:{content_node:SVG textnode},parts:feature parts,layertype}, then, in next funcs we add apoly param to t object, ir, its bounding polygon, layertype = 0 marker, 1 polyline, 2 polygon
-	    @memberof MapAutoLabelSupport#
-	    */
-	    readDataToLabel:function(){
-	      var pt  =[],this_=this;
-	      for(var i=0;i<this._layers2label.length;i++){
-	        var lg=this._layers2label[i];
-	        var ll2 = this._layers2label;
-	        lg.eachLayer(function(layer){
-	            if((layer instanceof L.Polyline) || (layer instanceof L.Polygon)){ //polyline case
-	              if(layer.feature.properties[lg._al_options.propertyName]){
-	                if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
-	                  var node =DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle);
-	                  var poly = DOMEssentials.getBoundingBox(this_,node); //compute ortho aligned bbox for this text, only once, common for all cases
-	                  var layer_type = (layer instanceof L.Polyline)?1:2; //0 goes to marker
-	                  var toAdd = {t:{content_node:node,poly:poly},parts:layer._parts, layertype: layer_type};
-	                  pt.push(toAdd);
-	                }
-	              }
-	            }else if (layer instanceof L.Marker) {// marker and circlemarker case
-	                //TODO [readDataToLabel] add markers to pool etc
-	            }
-
-	        });
-	      }
-	      return pt;
-	    },
-
-	    /**
-	    extracts good segments from available polyline parts and converts to use in next procedures of pos estimation
-	    @param {Array} ptcollection: each item is conatiner with t:label to draw for this polyline, parts - parts of this pline visible on screen in pixel coords
-	    @param {Set} options: options are: {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
-	    @memberof MapAutoLabelSupport#
-	    */
-	    prepareCurSegments(ptcollection,options){
-	      options = options || {};
-	      options.minSegLen = options.minSegLen || 200;
-	      options.maxlabelcount=options.maxlabelcount || 100;
-	      if(ptcollection.length>options.maxlabelcount){ //FIXME [prepareCurSegments] not aproper way to do things, to overcome two time rendering while zooming
-	        this.dodebug('too much labels to compute('+ptcollection.length+'>'+options.maxlabelcount+')');
-	        return [];
-	      }
-	      var allsegs=[];
-	      for(var i=0;i<ptcollection.length;i++){
-	        var item = ptcollection[i];
-	        var cursetItem=[]; //set of valid segments for this item
-	        var minimalsegsIfNoOthers=[];//set of non=valid segments, use in case if no valid there
-	        for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
-	          var curpart = item.parts[j];
-	          for(var k=1;k<curpart.length;k++){
-	            var a = curpart[k-1];
-	            var b = curpart[k];
-	            var ab = [a,b];
-	            if(geomEssentials.segLenOk(a,b,options.minSegLen))cursetItem.push(ab);else minimalsegsIfNoOthers.push(ab);
-	          }
-	        }
-	        //no we have segments to deal with
-	        if(cursetItem.length===0)cursetItem = minimalsegsIfNoOthers; //if no valid segmens were found, but there are some though
-	        if(cursetItem.length>0) allsegs.push({t:item.t,segs:cursetItem,layertype:item.layertype});
-	      }
-	      return allsegs;
 	    },
 
 	    /**
@@ -549,6 +484,18 @@
 	var geomEssentials = __webpack_require__(2);
 
 	var simulatedAnnealing = {
+
+	  obtainCandidateForPolyLine:function(seg){
+	    var segStartPt = seg[0],segEndPt=seg[1];
+	    if(segStartPt.x>segEndPt.x){
+	      var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
+	    }
+	    var ratio = Math.random(); //where to place label along the segment
+	    var p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
+	    var angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
+	    return {p2add:p2add,angle:angle};
+	  },
+	  
 	  /**
 	  computes label candidate object to place on map
 	  TODO [computeLabelCandidate] place label on both sides of segment
@@ -562,41 +509,22 @@
 	    var t = allsegs[i].t; //label part
 	    var segs = allsegs[i].segs;
 	    var idx = Math.floor((Math.random() * segs.length) ); //choose the segment index from parts visible on screeen
-	    var poly,p2add,angle;
+	    var poly,point_and_angle;
 	    poly = allsegs[i].t.poly;
-	    //Polyline part
-	    if(allsegs[i].layertype==1){
-	      var segStartPt = segs[idx][0],segEndPt=segs[idx][1];
-	      if(segStartPt.x>segEndPt.x){
-	        var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
-	      }
-	      var ratio = Math.random(); //where to place label along the segment
-	      p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
-	      angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
-	      //now, rotate and move the current set poly:
-	      poly=geomEssentials.rotatePoly(poly,[0,0],angle);
-	    }
-	    //Polygon part
-	    else if (allsegs[i].layertype==2) {
 
+	    switch (allsegs[i].layer_type) {
+	      case 0:
+	        break;
+	      case 1:
+	        point_and_angle=obtainCandidateForPolyLine(segs[idx]);
+	        break;
+	      case 2:
+	        break;
 	    }
 
-	    poly=geomEssentials.movePolyByAdding(poly,[p2add.x,p2add.y]);
-
-	  /*  if(this.options.allowBothSidesOfLine){
-	      if(Math.random()>0.5){
-	        var dx=poly[0][0]-poly[1][0];
-	        var dy=poly[0][1]-poly[1][1];
-	        for(var i=0;i<poly.length;i++){
-	          poly[i][0]+=dx; //x
-	          poly[i][1]+=dy; //y
-	        }
-	        p2add.x+=dx;
-	        p2add.y+=dy;
-	      }
-	    }*/
+	    if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
+	    poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
 	    //TODO [computeLabelCandidate] check, if any of poly points outside the screen, if so, slide it along the segment to achieve no point such
-
 	    var res={t:t,poly:poly,pos:p2add,a:angle,allsegs_index:i};
 	    return res;
 	  },
@@ -830,6 +758,98 @@
 	}
 
 	module.exports = simulatedAnnealing;
+
+
+/***/ },
+/* 4 */
+/***/ function(module, exports) {
+
+	/**
+	Module to extract sufficient info to label data on the map
+	*/
+
+	var dataReader = {
+	  /**
+	  creates an array of features's segments for each feature  of layers2label's layers on screen along with SVG text corresponding to
+	  @returns [Array] returns an array with values : {t:{content_node:SVG textnode},parts:feature parts,layertype}, then, in next funcs we add apoly param to t object, ir, its bounding polygon, layertype = 0 marker, 1 polyline, 2 polygon
+	  @memberof MapAutoLabelSupport#
+	  */
+	  readDataToLabel:function(){
+	    var pt  =[];
+	    if(this._map){
+	      for(var i=0;i<this._map._layers2label.length;i++){
+	        var lg=this._map._layers2label[i];
+	        var ll2 = this._map._layers2label;
+	        var map_to_add = this._map;
+	        lg.eachLayer(function(layer){
+	          if(layer.feature.properties[lg._al_options.propertyName]){
+	            var node =DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle);
+	            var poly = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
+	            var layer_type = 0;
+	            var centerOrParts;
+	            if(layer instanceof L.Polyline || layer instanceof L.Polygon){ //polyline case
+	                if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
+	                  layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
+	                  centerOrParts=layer._parts;
+	                }
+	              }
+	            else if (layer instanceof L.CircleMarker || L.Marker){
+	              centerOrParts = this._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
+	            }
+	            if(centerOrParts){
+	              var toAdd = {t:{content_node:node,poly:poly},parts:centerOrParts, layertype: layer_type};
+	              pt.push(toAdd);
+	            }
+	            }
+	          }
+	        );
+	      }
+	    }
+	    return pt;
+	  },
+
+	  /**
+	  extracts good segments from available polyline parts and converts to use in next procedures of pos estimation
+	  @param {Array} ptcollection: each item is conatiner with t:label to draw for this polyline, parts - parts of this pline visible on screen in pixel coords
+	  @param {Set} options: options are: {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
+	  @memberof MapAutoLabelSupport#
+	  */
+	  prepareCurSegments(ptcollection,options){
+	    options = options || {};
+	    options.minSegLen = options.minSegLen || 200;
+	    options.maxlabelcount=options.maxlabelcount || 100;
+	    if(ptcollection.length>options.maxlabelcount){ //FIXME [prepareCurSegments] not aproper way to do things, to overcome two time rendering while zooming
+	      this._map.dodebug('too much labels to compute('+ptcollection.length+'>'+options.maxlabelcount+')');
+	      return [];
+	    }
+	    var allsegs=[];
+	    for(var i=0;i<ptcollection.length;i++){
+	      var item = ptcollection[i];
+	      if(item.layertype==0){//if point -> do nothing.
+	        allsegs.push({t:item.t,origin:t.parts,layertype:item.layertype});
+	        continue;
+	      }
+	      //else compute for lines and polygons
+	      var cursetItem=[]; //set of valid segments for this item
+	      var minimalsegsIfNoOthers=[];//set of non=valid segments, use in case if no valid there
+	      for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
+	        var curpart = item.parts[j];
+	        for(var k=1;k<curpart.length;k++){
+	          var a = curpart[k-1];
+	          var b = curpart[k];
+	          var ab = [a,b];
+	          if(geomEssentials.segLenOk(a,b,options.minSegLen))cursetItem.push(ab);else minimalsegsIfNoOthers.push(ab);
+	        }
+	      }
+	      //no we have segments to deal with
+	      if(cursetItem.length===0)cursetItem = minimalsegsIfNoOthers; //if no valid segmens were found, but there are some though
+	      if(cursetItem.length>0) allsegs.push({t:item.t,segs:cursetItem,layertype:item.layertype});
+	    }
+	    return allsegs;
+	  },
+	}
+
+	module.exports = dataReader;
 
 
 /***/ }

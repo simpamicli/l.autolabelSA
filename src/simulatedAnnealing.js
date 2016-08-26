@@ -3,6 +3,25 @@
 var geomEssentials = require("./geomEssentials.js");
 
 var simulatedAnnealing = {
+
+  obtainCandidateForPolyLine:function(seg){
+    var segStartPt = seg[0],segEndPt=seg[1];
+    if(segStartPt.x>segEndPt.x){
+      var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
+    }
+    var ratio = Math.random(); //where to place label along the segment
+    var p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
+    var angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
+    return {p2add:p2add,angle:angle};
+  },
+
+  obtainCandidateForPoint(point){
+    //TODO[obtainCandidateForPoint]
+  },
+
+  obtainCandidateForPoly(ring){
+    //TODO[obtainCandidateForPoly]
+  },
   /**
   computes label candidate object to place on map
   TODO [computeLabelCandidate] place label on both sides of segment
@@ -16,41 +35,22 @@ var simulatedAnnealing = {
     var t = allsegs[i].t; //label part
     var segs = allsegs[i].segs;
     var idx = Math.floor((Math.random() * segs.length) ); //choose the segment index from parts visible on screeen
-    var poly,p2add,angle;
+    var poly,point_and_angle;
     poly = allsegs[i].t.poly;
-    //Polyline part
-    if(allsegs[i].layertype==1){
-      var segStartPt = segs[idx][0],segEndPt=segs[idx][1];
-      if(segStartPt.x>segEndPt.x){
-        var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
-      }
-      var ratio = Math.random(); //where to place label along the segment
-      p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
-      angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
-      //now, rotate and move the current set poly:
-      poly=geomEssentials.rotatePoly(poly,[0,0],angle);
-    }
-    //Polygon part
-    else if (allsegs[i].layertype==2) {
 
+    switch (allsegs[i].layer_type) {
+      case 0:
+        break;
+      case 1:
+        point_and_angle=obtainCandidateForPolyLine(segs[idx]);
+        break;
+      case 2:
+        break;
     }
 
-    poly=geomEssentials.movePolyByAdding(poly,[p2add.x,p2add.y]);
-
-  /*  if(this.options.allowBothSidesOfLine){
-      if(Math.random()>0.5){
-        var dx=poly[0][0]-poly[1][0];
-        var dy=poly[0][1]-poly[1][1];
-        for(var i=0;i<poly.length;i++){
-          poly[i][0]+=dx; //x
-          poly[i][1]+=dy; //y
-        }
-        p2add.x+=dx;
-        p2add.y+=dy;
-      }
-    }*/
+    if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
+    poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
     //TODO [computeLabelCandidate] check, if any of poly points outside the screen, if so, slide it along the segment to achieve no point such
-
     var res={t:t,poly:poly,pos:p2add,a:angle,allsegs_index:i};
     return res;
   },
