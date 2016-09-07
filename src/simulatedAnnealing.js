@@ -2,6 +2,7 @@
 
 var geomEssentials = require("./geomEssentials.js");
 
+//TODO [simulatedAnnealing] maybe do as factory function - to perform independently for different map instances
 var simulatedAnnealing = {
 
   obtainCandidateForPolyLine:function(seg){
@@ -270,15 +271,10 @@ var simulatedAnnealing = {
                 return;
               }
             }
-
             //decrease t
             t*=options.decrease_value;
             timerID=setTimeout(doStep,0);
             },0);
-
-
-
-          // return curset;
       }
   }
 }

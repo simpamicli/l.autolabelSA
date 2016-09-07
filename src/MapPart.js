@@ -147,6 +147,7 @@
           this.clearNodes();
           return;
         }
+        //TODO [doAutoLabel] stop simulatedAnnealing from previous iteration before starting new
         simulatedAnnealing.perform(allsegs,{},this.renderNodes,this);
       }
     },
