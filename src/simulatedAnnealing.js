@@ -39,11 +39,11 @@ var simulatedAnnealing = {
     var poly,point_and_angle;
     poly = allsegs[i].t.poly;
 
-    switch (allsegs[i].layer_type) {
+    switch (allsegs[i].layertype) {
       case 0:
         break;
       case 1:
-        point_and_angle=obtainCandidateForPolyLine(segs[idx]);
+        point_and_angle=this.obtainCandidateForPolyLine(segs[idx]);
         break;
       case 2:
         break;
@@ -52,7 +52,7 @@ var simulatedAnnealing = {
     if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
     poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
     //TODO [computeLabelCandidate] check, if any of poly points outside the screen, if so, slide it along the segment to achieve no point such
-    var res={t:t,poly:poly,pos:p2add,a:angle,allsegs_index:i};
+    var res={t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};
     return res;
   },
 
@@ -195,7 +195,9 @@ var simulatedAnnealing = {
     this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
   },
 
-  timerID:0,
+  stopCalc:function(timerID,callback){
+
+  },
 
   /**
   find optimal label placement based on simulated annealing approach, relies on paper https://www.eecs.harvard.edu/shieber/Biblio/Papers/jc.label.pdf
@@ -217,16 +219,24 @@ var simulatedAnnealing = {
           var doexit=curvalues[curvalues.length-1] === 0;//if no overlaping at init state, do nothing and return curretn state
           var iterations=0;
           var This=this;
-
-          var doReturn = function(){
-            This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
-            var t1 = performance.now();
-            This.dodebug('time to annealing = '+(t1-t0));
-            callback.call(context,curset);
+          var oldCenter = context.getCenter(), oldZoom = context.getZoom();
+          var doReturn = function(dorender){
+            This.dodebug('-----');
+            if(dorender){
+              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
+              var t1 = performance.now();
+              This.dodebug('time to annealing = '+(t1-t0));
+              callback.call(context,curset);
+            }else{
+              This.dodebug('Map state has been changed. Terminated.');
+            }
           }
 
           //step
-          timerID=setTimeout(function doStep(){
+          while(true){
+            //FIXME - infinite loop here
+            var dorender=true;
+             //let know map which timer we are using
             //while constant temperature, do some replacments:
             //  while(t>options.tmin && stepcount<options.maxsteps && !doexit
             if(t<=options.tmin || stepcount>=options.maxsteps)return;
@@ -242,7 +252,7 @@ var simulatedAnnealing = {
               iterations++;
               if(curvalues[curvalues.length-1] === 0){
                 This.dodebug('strict solution');
-                doReturn();
+                doReturn(dorender);
                 return;
               }
               var delta = (oldvalues[oldvalues.length-1]-curvalues[curvalues.length-1]);
@@ -262,19 +272,22 @@ var simulatedAnnealing = {
                }
               if(no_improve_count>=options.max_noimprove_count*curset.length){ //it is already optimal
                 This.dodebug('stable state, finish on it');
-                doReturn();
+                doReturn(dorender);
                 return;
               }
               if(improvements_count>=options.max_improvments_count*curset.length){
                 //immediately exit cycle and decrease current t
-                doReturn();
+                doReturn(dorender);
                 return;
               }
             }
             //decrease t
             t*=options.decrease_value;
-            timerID=setTimeout(doStep,0);
-            },0);
+            if(iterations>5000){
+              doReturn(dorender);
+              return;
+            }
+          };
       }
   }
 }

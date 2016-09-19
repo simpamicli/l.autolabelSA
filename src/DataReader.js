@@ -1,6 +1,8 @@
 /**
 Module to extract sufficient info to label data on the map
 */
+var DOMEssentials = require("./DOMEssentials.js");
+var geomEssentials = require("./geomEssentials.js");
 
 var dataReader = {
   /**
@@ -16,6 +18,7 @@ var dataReader = {
         var ll2 = this._map._layers2label;
         var map_to_add = this._map;
         lg.eachLayer(function(layer){
+          if(layer.feature)
           if(layer.feature.properties[lg._al_options.propertyName]){
             var node =DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle);
             var poly = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases

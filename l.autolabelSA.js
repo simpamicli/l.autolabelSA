@@ -114,6 +114,7 @@
 	    _nodes:[], //an array for storing SVG node to draw while autolabelling
 	    _layers2label:[], //an array to know which layergroups are to label
 	    _al_options:{}, //autolabel options for this map
+	    _al_timerID:-1, //variable to store current timer ID of simulated annealing timer - used for terminating annealing job
 
 	    /**
 	    set global options for auto-labelling
@@ -178,6 +179,8 @@
 	      if(this._al_options.debug)console.log(message);
 	    },
 
+
+
 	    /**
 	    this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
 	    TODO [doAutoLabel] add populateOkSegments func
@@ -193,7 +196,18 @@
 	          this.clearNodes();
 	          return;
 	        }
-	        simulatedAnnealing.perform(allsegs,{},this.renderNodes,this);
+	        //TODO [doAutoLabel] stop simulatedAnnealing from previous iteration before starting new
+	        var updateAlTimer=function(newvalue){
+	          this._al_timerID = newvalue;
+	        }
+	        var stopAnnealingHandler = function(){
+	          return this._al_timerID==-1;
+	        }
+	        if(this._al_timerID!=-1)this._al_timerID=-1; //stop any previous timer
+	        //start new
+	        simulatedAnnealing.perform(allsegs,{},this.renderNodes,this.updateAlTimer,stopAnnealingHandler,this);
+	      }else{
+
 	      }
 	    },
 
@@ -483,6 +497,7 @@
 
 	var geomEssentials = __webpack_require__(2);
 
+	//TODO [simulatedAnnealing] maybe do as factory function - to perform independently for different map instances
 	var simulatedAnnealing = {
 
 	  obtainCandidateForPolyLine:function(seg){
@@ -495,7 +510,14 @@
 	    var angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
 	    return {p2add:p2add,angle:angle};
 	  },
-	  
+
+	  obtainCandidateForPoint(point){
+	    //TODO[obtainCandidateForPoint]
+	  },
+
+	  obtainCandidateForPoly(ring){
+	    //TODO[obtainCandidateForPoly]
+	  },
 	  /**
 	  computes label candidate object to place on map
 	  TODO [computeLabelCandidate] place label on both sides of segment
@@ -512,11 +534,11 @@
 	    var poly,point_and_angle;
 	    poly = allsegs[i].t.poly;
 
-	    switch (allsegs[i].layer_type) {
+	    switch (allsegs[i].layertype) {
 	      case 0:
 	        break;
 	      case 1:
-	        point_and_angle=obtainCandidateForPolyLine(segs[idx]);
+	        point_and_angle=this.obtainCandidateForPolyLine(segs[idx]);
 	        break;
 	      case 2:
 	        break;
@@ -525,7 +547,7 @@
 	    if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
 	    poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
 	    //TODO [computeLabelCandidate] check, if any of poly points outside the screen, if so, slide it along the segment to achieve no point such
-	    var res={t:t,poly:poly,pos:p2add,a:angle,allsegs_index:i};
+	    var res={t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};
 	    return res;
 	  },
 
@@ -668,7 +690,9 @@
 	    this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
 	  },
 
-	  timerID:0,
+	  stopCalc:function(timerID,callback){
+
+	  },
 
 	  /**
 	  find optimal label placement based on simulated annealing approach, relies on paper https://www.eecs.harvard.edu/shieber/Biblio/Papers/jc.label.pdf
@@ -678,7 +702,7 @@
 	  @param {Object} context: a parent conext of the function  above (arguments.callee - but deprecated)
 	  @memberof MapAutoLabelSupport#
 	  */
-	  perform:function(allsegs,options,callback,context) {
+	  perform:function(allsegs,options,callback,updateTimerCallback,stopAnnealingCallback,context) {
 	        if(allsegs.length<1){callback([])}else{
 	          var t0 = performance.now();
 	          this.processOptions(options);
@@ -695,11 +719,16 @@
 	            This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
 	            var t1 = performance.now();
 	            This.dodebug('time to annealing = '+(t1-t0));
+	            updateTimerCallback.call(context,-1);
 	            callback.call(context,curset);
 	          }
 
 	          //step
-	          timerID=setTimeout(function doStep(){
+	          var timerID=setTimeout(function doStep(){
+	            if(stopAnnealingCallback.call(context)){
+	              doReturn();
+	            }
+	            updateTimerCallback.call(context,timerID); //let know map which timer we are using
 	            //while constant temperature, do some replacments:
 	            //  while(t>options.tmin && stepcount<options.maxsteps && !doexit
 	            if(t<=options.tmin || stepcount>=options.maxsteps)return;
@@ -744,15 +773,10 @@
 	                return;
 	              }
 	            }
-
 	            //decrease t
 	            t*=options.decrease_value;
 	            timerID=setTimeout(doStep,0);
-	            },0);
-
-
-
-	          // return curset;
+	          },0);
 	      }
 	  }
 	}
@@ -762,11 +786,13 @@
 
 /***/ },
 /* 4 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
 	/**
 	Module to extract sufficient info to label data on the map
 	*/
+	var DOMEssentials = __webpack_require__(1);
+	var geomEssentials = __webpack_require__(2);
 
 	var dataReader = {
 	  /**
@@ -782,6 +808,7 @@
 	        var ll2 = this._map._layers2label;
 	        var map_to_add = this._map;
 	        lg.eachLayer(function(layer){
+	          if(layer.feature)
 	          if(layer.feature.properties[lg._al_options.propertyName]){
 	            var node =DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle);
 	            var poly = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
@@ -830,6 +857,8 @@
 	        continue;
 	      }
 	      //else compute for lines and polygons
+	      //TODO[prepareCurSegments] add valid parsing for polygon case
+	      //now it is only fo lines
 	      var cursetItem=[]; //set of valid segments for this item
 	      var minimalsegsIfNoOthers=[];//set of non=valid segments, use in case if no valid there
 	      for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label

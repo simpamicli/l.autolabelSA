@@ -68,6 +68,7 @@
     _nodes:[], //an array for storing SVG node to draw while autolabelling
     _layers2label:[], //an array to know which layergroups are to label
     _al_options:{}, //autolabel options for this map
+    _al_timerID:-1, //variable to store current timer ID of simulated annealing timer - used for terminating annealing job
 
     /**
     set global options for auto-labelling
@@ -91,7 +92,7 @@
     */
     toggleAutoLabelling:function(){ //this not tested yet
       if(this._autoLabel)this.disableAutoLabel();else this.enableAutoLabel();
-      this._zoomendThing();
+      //this._zoomendThing();
       this.doAutoLabel();
     },
 
@@ -101,10 +102,11 @@
     @memberof MapAutoLabelSupport#
     */
     _zoomendThing:function(){
+      //this.clearNodes();
       var center = this.getCenter();
       var zoom = this.getZoom();
       this._resetView(center, zoom); //beacuse buggy
-      this.clearNodes();
+
       //this.fire('moveend');
     },
 
@@ -132,6 +134,10 @@
       if(this._al_options.debug)console.log(message);
     },
 
+    renderLabels:function(){
+      return this.getZoom()>this._al_options.zoomToStartLabel;
+    },
+
     /**
     this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
     TODO [doAutoLabel] add populateOkSegments func
@@ -148,7 +154,11 @@
           return;
         }
         //TODO [doAutoLabel] stop simulatedAnnealing from previous iteration before starting new
+        //start new
+
         simulatedAnnealing.perform(allsegs,{},this.renderNodes,this);
+      }else{
+        this.clearNodes();
       }
     },
 
@@ -188,6 +198,7 @@
     renderNodes:function(labelset){
       var svg = this._renderer._container; //to work with SVG
       this.clearNodes(); //clearscreen
+      if(this.renderLabels())
       for(var m=0;m<labelset.length;m++){
         var node = labelset[m].t.content_node;
         var x = labelset[m].pos.x;
