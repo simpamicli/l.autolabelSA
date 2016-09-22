@@ -68,6 +68,7 @@ var dataReader = {
       }
       //else compute for lines and polygons
       //TODO[prepareCurSegments] add valid parsing for polygon case
+      //TODO[prepareCurSegments]IMPORTANT clip _parts angain to about 0.9 size of screen bbox
       //now it is only fo lines
       var cursetItem=[]; //set of valid segments for this item
       var minimalsegsIfNoOthers=[];//set of non=valid segments, use in case if no valid there
