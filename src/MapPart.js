@@ -33,10 +33,12 @@
     */
     enableAutoLabel:function(options){
       if(!this._map)return;
+      if(!this._map._layers2label)return;
       this._al_options = options || {};
       this._al_options.labelStyle = options.labelStyle || "fill: lime; stroke: #000000;  font-size: 20px;"; //TODO [enableAutoLabel] add ability to set unique style for each feature
       this._al_options.propertyName = options.propertyName || "name";
       this._al_options.priority = options.priority || 0; //highest
+
       this._map._layers2label.push(this);
     },
 
@@ -46,6 +48,7 @@
     @returns {Boolean}
     */
     autoLabelEnabled:function(){
+      if(!this._map._layers2label)return false;
       return this._map._layers2label.indexOf(this)!=-1;
     },
 
@@ -54,6 +57,10 @@
     @memberof AutoLabelingSupport#
     */
     disableAutoLabel:function(){
+      if(!this._map._layers2label){
+        delete this._al_options;
+        return;
+      }
       var ind=this._map._layers2label.indexOf(this);
       if(ind>=0){
         this._map._layers2label.splice(ind,1);
@@ -115,6 +122,11 @@
     @memberof MapAutoLabelSupport#
     */
     enableAutoLabel:function(){
+      if(!this.options.renderer){
+        this.dodebug('renderer is invalid');
+        return;
+      }
+      this.setAutoLabelOptions(this._al_options);
       this.on("moveend",this.doAutoLabel);
       this.on("zoomend",this._zoomendThing);
       this._autoLabel = true;
@@ -132,10 +144,6 @@
 
     dodebug:function(message){
       if(this._al_options.debug)console.log(message);
-    },
-
-    renderLabels:function(){
-      return this.getZoom()>this._al_options.zoomToStartLabel;
     },
 
     /**
@@ -184,7 +192,7 @@
     @memberof MapAutoLabelSupport#
     */
     clearNodes:function() {
-      var svg = this._renderer._container; //to work with SVG
+    var svg = this.options.renderer._container;  //to work with SVG
       for(var i=0;i<this._nodes.length;i++){//clear _nodes on screen
         svg.removeChild(this._nodes[i]);
       }
@@ -196,9 +204,8 @@
     @memberof MapAutoLabelSupport#
     */
     renderNodes:function(labelset){
-      var svg = this._renderer._container; //to work with SVG
+      var svg =  this.options.renderer._container;  //to work with SVG
       this.clearNodes(); //clearscreen
-      if(this.renderLabels())
       for(var m=0;m<labelset.length;m++){
         var node = labelset[m].t.content_node;
         var x = labelset[m].pos.x;

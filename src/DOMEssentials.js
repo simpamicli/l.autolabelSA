@@ -28,7 +28,7 @@ var DOMEssentials = {
   @memberof DOMEssentials#
   */
   getBoundingBox:function(map,node){
-    var svg = map._renderer._container;
+    var svg = map.options.renderer._container;
     svg.appendChild(node);
     var rect = node.getBoundingClientRect();
     var ortho_poly = this.convertClientRectToArrayOfArrays(rect);
