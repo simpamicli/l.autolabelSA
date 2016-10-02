@@ -12,7 +12,6 @@
 
 
   var __onRemove = L.LayerGroup.prototype.onRemove;
-  var __resetView=L.Map._resetView;
   //to include in LabelGroup
   /** @namespace AutoLabelingSupport*/
   var AutoLabelingSupport = {
@@ -39,7 +38,6 @@
       this._al_options.labelStyle = options.labelStyle || "fill: lime; stroke: #000000;  font-size: 20px;"; //TODO [enableAutoLabel] add ability to set unique style for each feature
       this._al_options.propertyName = options.propertyName || "name";
       this._al_options.priority = options.priority || 0; //highest
-
       this._map._layers2label.push(this);
     },
 

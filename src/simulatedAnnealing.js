@@ -5,13 +5,24 @@ var geomEssentials = require("./geomEssentials.js");
 //TODO [simulatedAnnealing] maybe do as factory function - to perform independently for different map instances
 var simulatedAnnealing = {
 
-  obtainCandidateForPolyLine:function(seg){
+  obtainCandidateForPolyLine:function(seg_w_len,labelLength){
+    var seg = seg_w_len.seg, seglen = seg_w_len.seglen;
     var segStartPt = seg[0],segEndPt=seg[1];
     if(segStartPt.x>segEndPt.x){
       var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
     }
-    var ratio = Math.random(); //where to place label along the segment
-    var p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
+    var p2add;
+    //now we need not let label exceed segment length. If seg is too small, the ratio shoud be zero
+    //so, calculate ratio as following:
+    if(labelLength>=seglen){
+      p2add = segStartPt;
+    }else{
+      var ratio = Math.random();
+      var allowed_max_ratio = (seglen - labelLength)/seglen;//is less than 1
+      //so
+      ratio*=allowed_max_ratio;
+      p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
+    }
     var angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
     return {p2add:p2add,angle:angle};
   },
@@ -43,7 +54,7 @@ var simulatedAnnealing = {
       case 0:
         break;
       case 1:
-        point_and_angle=this.obtainCandidateForPolyLine(segs[idx]);
+        point_and_angle=this.obtainCandidateForPolyLine(segs[idx],t.poly[2][0]);
         break;
       case 2:
         break;
@@ -233,7 +244,7 @@ var simulatedAnnealing = {
           }
 
           //step
-          while(true){            
+          while(true){
             var dorender=true;
              //let know map which timer we are using
             //while constant temperature, do some replacments:

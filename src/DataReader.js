@@ -33,6 +33,7 @@ var dataReader = {
             else if (layer instanceof L.CircleMarker || L.Marker){
               centerOrParts = this._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
             }
+
             if(centerOrParts){
               var toAdd = {t:{content_node:node,poly:poly},parts:centerOrParts, layertype: layer_type};
               pt.push(toAdd);
@@ -53,7 +54,6 @@ var dataReader = {
   */
   prepareCurSegments(ptcollection,options){
     options = options || {};
-    options.minSegLen = options.minSegLen || 200;
     options.maxlabelcount=options.maxlabelcount || 100;
     if(ptcollection.length>options.maxlabelcount){ //FIXME [prepareCurSegments] not aproper way to do things, to overcome two time rendering while zooming
       this._map.dodebug('too much labels to compute('+ptcollection.length+'>'+options.maxlabelcount+')');
@@ -70,20 +70,26 @@ var dataReader = {
       //TODO[prepareCurSegments] add valid parsing for polygon case
       //TODO[prepareCurSegments]IMPORTANT clip _parts angain to about 0.9 size of screen bbox
       //now it is only fo lines
-      var cursetItem=[]; //set of valid segments for this item
-      var minimalsegsIfNoOthers=[];//set of non=valid segments, use in case if no valid there
-      for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
-        var curpart = item.parts[j];
-        for(var k=1;k<curpart.length;k++){
-          var a = curpart[k-1];
-          var b = curpart[k];
-          var ab = [a,b];
-          if(geomEssentials.segLenOk(a,b,options.minSegLen))cursetItem.push(ab);else minimalsegsIfNoOthers.push(ab);
+      if(item.layertype==1){
+        var cursetItem=[]; //set of valid segments for this item
+        var too_small_segments=[]; //set of segment which length is less the label's lebgth of corresponding feature
+        var labelLength = item.t.poly[2][0];
+        for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
+          var curpart = item.parts[j];
+          for(var k=1;k<curpart.length;k++){
+            var a = curpart[k-1];
+            var b = curpart[k];
+            var ab = [a,b];
+            var ablen = a.distanceTo(b); //compute segment length only once
+            var what_to_push ={seg:ab,seglen:ablen};
+            if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+          }
         }
       }
-      //no we have segments to deal with
-      if(cursetItem.length===0)cursetItem = minimalsegsIfNoOthers; //if no valid segmens were found, but there are some though
-      if(cursetItem.length>0) allsegs.push({t:item.t,segs:cursetItem,layertype:item.layertype});
+
+      var to_all_segs = {t:item.t,layertype:item.layertype};
+      if(cursetItem.length>0)to_all_segs.segs=cursetItem;else to_all_segs.segs=too_small_segments;
+      allsegs.push(to_all_segs);
     }
     return allsegs;
   },
