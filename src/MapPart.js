@@ -12,7 +12,7 @@
 
 
   var __onRemove = L.LayerGroup.prototype.onRemove;
-
+  var __resetView=L.Map._resetView;
   //to include in LabelGroup
   /** @namespace AutoLabelingSupport*/
   var AutoLabelingSupport = {
@@ -24,6 +24,7 @@
       this.disableAutoLabel();
         __onRemove.call(this, map);
     },
+
 
     /**
      enable autolabeling for this layerGroup, additionally set the current_map variable if it is undefined and hooks label painting on moveend /zoomend events
@@ -99,23 +100,13 @@
     */
     toggleAutoLabelling:function(){ //this not tested yet
       if(this._autoLabel)this.disableAutoLabel();else this.enableAutoLabel();
-      //this._zoomendThing();
+    },
+
+    ___resetView:function(center,zoom){
+      __resetView.call(this,center,zoom);
       this.doAutoLabel();
     },
 
-    /**
-    without this it is not working properly
-    FIXME [_zoomendThing] : while zooming first time it labels everything, not only in active view
-    @memberof MapAutoLabelSupport#
-    */
-    _zoomendThing:function(){
-      //this.clearNodes();
-      var center = this.getCenter();
-      var zoom = this.getZoom();
-      this._resetView(center, zoom); //beacuse buggy
-
-      //this.fire('moveend');
-    },
 
     /**
     enable autolabeling for this map
@@ -127,19 +118,32 @@
         return;
       }
       this.setAutoLabelOptions(this._al_options);
-      this.on("moveend",this.doAutoLabel);
-      this.on("zoomend",this._zoomendThing);
+      //this.on("zoomend",this.applyDoAutoLabel);
+      this.options.renderer.on("update",this.applyDoAutoLabel);
+      this.on("zoomstart",function(){this.zoomstarttrig=1});
+      this.on("zoomend",function(){this.zoomstarttrig=0});
       this._autoLabel = true;
     },
 
+    zoomstarttrig:0,
     /**
     diable autolabeling for this map
     @memberof MapAutoLabelSupport#
     */
     disableAutoLabel:function(){
-      this.off("moveend",this.doAutoLabel);
-      this.off("zoomend",this._zoomendThing);
+      this.options.renderer.on("update",this.applyDoAutoLabel);
+      //this.off("zoomend",this.applyDoAutoLabel);
+      //._resetView = __resetView;
+      //this.off("moveend ",this.doAutoLabel);
       this._autoLabel=false;
+    },
+
+    applyDoAutoLabel:function(){
+      if(this._map.zoomstarttrig==0){
+        var _this=this._map;
+        setTimeout(function(){_this.doAutoLabel()},1000);
+      }
+      this._map.clearNodes();
     },
 
     dodebug:function(message){

@@ -233,8 +233,7 @@ var simulatedAnnealing = {
           }
 
           //step
-          while(true){
-            //FIXME - infinite loop here
+          while(true){            
             var dorender=true;
              //let know map which timer we are using
             //while constant temperature, do some replacments:

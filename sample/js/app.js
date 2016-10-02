@@ -10,3 +10,9 @@ var map = new L.Map('map',{renderer:L.svg()}).addLayer(osm).setView(new L.LatLng
 map.addControl(new L.Control.Layers( {'Карта':osm, 'Спутник':googleHybrid}, {}));
 //map.setAutoLabelOptions({showBBoxes:true});
 map.toggleAutoLabelling();
+ map.options.renderer.on("update",function(){console.log("updateds")});
+ map.on("zoomstart",function(){console.log("zoom st")});
+ map.on("zoomend",function(){console.log("zoom fin")});
+ map.on("moveend",function(){console.log("move fin")});
+ map.on("movestart",function(){console.log("move st")});
+//map.on("viewreset",function(){console.log("vr fin")});
