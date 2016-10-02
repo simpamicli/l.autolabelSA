@@ -28,7 +28,7 @@
 
     /**
      enable autolabeling for this layerGroup, additionally set the current_map variable if it is undefined and hooks label painting on moveend /zoomend events
-     it adds this layerGroup to the _layers2label array, so doAutoLabel function will know about this layerGroup
+     it adds this layerGroup to the _layers2label array, so _doAutoLabel function will know about this layerGroup
      @param {Object} options: labelStyle - css string to describe labels look, for now one for all layers in group, propertyName - a property from layer.feature.properties which we label on map
      @memberof AutoLabelingSupport#
     */
@@ -76,8 +76,8 @@
     _nodes:[], //an array for storing SVG node to draw while autolabelling
     _layers2label:[], //an array to know which layergroups are to label
     _al_options:{}, //autolabel options for this map
-    _al_timerID:-1, //variable to store current timer ID of simulated annealing timer - used for terminating annealing job
-
+    //_al_timerID:-1, //variable to store current timer ID of simulated annealing timer - used for terminating annealing job
+    _autoLabel:false, //to detrmine if autolabelling is set for this map
     /**
     set global options for auto-labelling
     @param {OBject} opts: see code
@@ -93,7 +93,7 @@
       this._al_options.doNotShowIfSegIsTooSmall = opts.doNotShowIfSegIsTooSmall || false; //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
     },
 
-    _autoLabel:false, //to detrmine if autolabelling is set for this map
+
     /**
     toggles autolabeling
     @memberof MapAutoLabelSupport#
@@ -101,76 +101,77 @@
     toggleAutoLabelling:function(){ //this not tested yet
       if(this._autoLabel)this.disableAutoLabel();else this.enableAutoLabel();
     },
-
-    ___resetView:function(center,zoom){
-      __resetView.call(this,center,zoom);
-      this.doAutoLabel();
-    },
-
-
     /**
     enable autolabeling for this map
     @memberof MapAutoLabelSupport#
     */
     enableAutoLabel:function(){
       if(!this.options.renderer){
-        this.dodebug('renderer is invalid');
+        this._dodebug('renderer is invalid');
         return;
       }
       this.setAutoLabelOptions(this._al_options);
-      //this.on("zoomend",this.applyDoAutoLabel);
-      this.options.renderer.on("update",this.applyDoAutoLabel);
-      this.on("zoomstart",function(){this.zoomstarttrig=1});
-      this.on("zoomend",function(){this.zoomstarttrig=0});
+      //this.on("zoomend",this._apply_doAutoLabel);
+      this.options.renderer.on("update",this._apply_doAutoLabel);
+      this.on("zoomstart",function(){this._zoomstarttrig=1});
+      this.on("zoomend",function(){this._zoomstarttrig=0});
       this._autoLabel = true;
     },
 
-    zoomstarttrig:0,
+    //to check if zoomstart event is fired to prevent autolabeling BEFORE zoomend
+    _zoomstarttrig:0,
+
+    //id of timeout after which AutoLabeling should be done each time - used to stop timer in case of changed map state BEFORE autolabelling was performed
+    _ctimerID:-1,
     /**
-    diable autolabeling for this map
+    disable autolabeling for this map
     @memberof MapAutoLabelSupport#
     */
     disableAutoLabel:function(){
-      this.options.renderer.on("update",this.applyDoAutoLabel);
-      //this.off("zoomend",this.applyDoAutoLabel);
+      this.options.renderer.on("update",this._apply_doAutoLabel);
+      //this.off("zoomend",this._apply_doAutoLabel);
       //._resetView = __resetView;
-      //this.off("moveend ",this.doAutoLabel);
+      //this.off("moveend ",this._doAutoLabel);
       this._autoLabel=false;
     },
 
-    applyDoAutoLabel:function(){
-      if(this._map.zoomstarttrig==0){
+    /*
+    beacuse we using update event of renderer, here we switching to map context and handling two-time update event of SVG renderer
+    */
+    _apply_doAutoLabel:function(){
+      if(this._map._ctimerID!=-1)clearTimeout(this._map._ctimerID);
+      if(this._map._zoomstarttrig==0){
         var _this=this._map;
-        setTimeout(function(){_this.doAutoLabel()},1000);
+        this._map._ctimerID=setTimeout(function(){_this._doAutoLabel()},1000);
       }
-      this._map.clearNodes();
+      this._map._clearNodes();
     },
 
-    dodebug:function(message){
+    _dodebug:function(message){
       if(this._al_options.debug)console.log(message);
     },
 
     /**
     this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
-    TODO [doAutoLabel] add populateOkSegments func
+    TODO [_doAutoLabel] add populateOkSegments func
     @memberof MapAutoLabelSupport#
     */
-    doAutoLabel:function() {
+    _doAutoLabel:function() {
       if(!this._autoLabel)return; //nothing to do here
       if(this.getZoom()>this._al_options.zoomToStartLabel){
         dataReader._map=this;
         var pt  =dataReader.readDataToLabel() //array for storing paths and values
         var allsegs=dataReader.prepareCurSegments(pt,{minSegLen:5,maxlabelcount:50});
         if(allsegs.length==0){
-          this.clearNodes();
+          this._clearNodes();
           return;
         }
-        //TODO [doAutoLabel] stop simulatedAnnealing from previous iteration before starting new
+        //TODO [_doAutoLabel] stop simulatedAnnealing from previous iteration before starting new
         //start new
 
-        simulatedAnnealing.perform(allsegs,{},this.renderNodes,this);
+        simulatedAnnealing.perform(allsegs,{},this._renderNodes,this);
       }else{
-        this.clearNodes();
+        this._clearNodes();
       }
     },
 
@@ -180,7 +181,7 @@
     @returns {SVGPolygon}
     @memberof MapAutoLabelSupport#
     */
-    createPolygonNode:function(poly){
+    _createPolygonNode:function(poly){
       var node = L.SVG.create('polygon');
       var points='';
       for(var i=0;i<poly.length;i++){
@@ -195,7 +196,7 @@
     clears label on the screen
     @memberof MapAutoLabelSupport#
     */
-    clearNodes:function() {
+    _clearNodes:function() {
     var svg = this.options.renderer._container;  //to work with SVG
       for(var i=0;i<this._nodes.length;i++){//clear _nodes on screen
         svg.removeChild(this._nodes[i]);
@@ -207,9 +208,9 @@
     renders computed labelset on the screen via svg
     @memberof MapAutoLabelSupport#
     */
-    renderNodes:function(labelset){
+    _renderNodes:function(labelset){
       var svg =  this.options.renderer._container;  //to work with SVG
-      this.clearNodes(); //clearscreen
+      this._clearNodes(); //clearscreen
       for(var m=0;m<labelset.length;m++){
         var node = labelset[m].t.content_node;
         var x = labelset[m].pos.x;
@@ -223,7 +224,7 @@
         this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
         if(this._al_options.showBBoxes){
           //here for testing purposes
-          var polynode = this.createPolygonNode(labelset[m].poly);
+          var polynode = this._createPolygonNode(labelset[m].poly);
           svg.appendChild(polynode);
           this._nodes.push(polynode); //add this polygon to _nodes array, so we can erase it from the screen later
         }
