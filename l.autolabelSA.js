@@ -58,7 +58,7 @@
 
 
 	  var __onRemove = L.LayerGroup.prototype.onRemove;
-
+	  var __resetView=L.Map._resetView;
 	  //to include in LabelGroup
 	  /** @namespace AutoLabelingSupport*/
 	  var AutoLabelingSupport = {
@@ -71,6 +71,7 @@
 	        __onRemove.call(this, map);
 	    },
 
+
 	    /**
 	     enable autolabeling for this layerGroup, additionally set the current_map variable if it is undefined and hooks label painting on moveend /zoomend events
 	     it adds this layerGroup to the _layers2label array, so doAutoLabel function will know about this layerGroup
@@ -79,10 +80,12 @@
 	    */
 	    enableAutoLabel:function(options){
 	      if(!this._map)return;
+	      if(!this._map._layers2label)return;
 	      this._al_options = options || {};
 	      this._al_options.labelStyle = options.labelStyle || "fill: lime; stroke: #000000;  font-size: 20px;"; //TODO [enableAutoLabel] add ability to set unique style for each feature
 	      this._al_options.propertyName = options.propertyName || "name";
 	      this._al_options.priority = options.priority || 0; //highest
+
 	      this._map._layers2label.push(this);
 	    },
 
@@ -92,6 +95,7 @@
 	    @returns {Boolean}
 	    */
 	    autoLabelEnabled:function(){
+	      if(!this._map._layers2label)return false;
 	      return this._map._layers2label.indexOf(this)!=-1;
 	    },
 
@@ -100,6 +104,10 @@
 	    @memberof AutoLabelingSupport#
 	    */
 	    disableAutoLabel:function(){
+	      if(!this._map._layers2label){
+	        delete this._al_options;
+	        return;
+	      }
 	      var ind=this._map._layers2label.indexOf(this);
 	      if(ind>=0){
 	        this._map._layers2label.splice(ind,1);
@@ -138,48 +146,55 @@
 	    */
 	    toggleAutoLabelling:function(){ //this not tested yet
 	      if(this._autoLabel)this.disableAutoLabel();else this.enableAutoLabel();
-	      this._zoomendThing();
+	    },
+
+	    ___resetView:function(center,zoom){
+	      __resetView.call(this,center,zoom);
 	      this.doAutoLabel();
 	    },
 
-	    /**
-	    without this it is not working properly
-	    FIXME [_zoomendThing] : while zooming first time it labels everything, not only in active view
-	    @memberof MapAutoLabelSupport#
-	    */
-	    _zoomendThing:function(){
-	      var center = this.getCenter();
-	      var zoom = this.getZoom();
-	      this._resetView(center, zoom); //beacuse buggy
-	      this.clearNodes();
-	      //this.fire('moveend');
-	    },
 
 	    /**
 	    enable autolabeling for this map
 	    @memberof MapAutoLabelSupport#
 	    */
 	    enableAutoLabel:function(){
-	      this.on("moveend",this.doAutoLabel);
-	      this.on("zoomend",this._zoomendThing);
+	      if(!this.options.renderer){
+	        this.dodebug('renderer is invalid');
+	        return;
+	      }
+	      this.setAutoLabelOptions(this._al_options);
+	      //this.on("zoomend",this.applyDoAutoLabel);
+	      this.options.renderer.on("update",this.applyDoAutoLabel);
+	      this.on("zoomstart",function(){this.zoomstarttrig=1});
+	      this.on("zoomend",function(){this.zoomstarttrig=0});
 	      this._autoLabel = true;
 	    },
 
+	    zoomstarttrig:0,
 	    /**
 	    diable autolabeling for this map
 	    @memberof MapAutoLabelSupport#
 	    */
 	    disableAutoLabel:function(){
-	      this.off("moveend",this.doAutoLabel);
-	      this.off("zoomend",this._zoomendThing);
+	      this.options.renderer.on("update",this.applyDoAutoLabel);
+	      //this.off("zoomend",this.applyDoAutoLabel);
+	      //._resetView = __resetView;
+	      //this.off("moveend ",this.doAutoLabel);
 	      this._autoLabel=false;
+	    },
+
+	    applyDoAutoLabel:function(){
+	      if(this._map.zoomstarttrig==0){
+	        var _this=this._map;
+	        setTimeout(function(){_this.doAutoLabel()},1000);
+	      }
+	      this._map.clearNodes();
 	    },
 
 	    dodebug:function(message){
 	      if(this._al_options.debug)console.log(message);
 	    },
-
-
 
 	    /**
 	    this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
@@ -197,17 +212,11 @@
 	          return;
 	        }
 	        //TODO [doAutoLabel] stop simulatedAnnealing from previous iteration before starting new
-	        var updateAlTimer=function(newvalue){
-	          this._al_timerID = newvalue;
-	        }
-	        var stopAnnealingHandler = function(){
-	          return this._al_timerID==-1;
-	        }
-	        if(this._al_timerID!=-1)this._al_timerID=-1; //stop any previous timer
 	        //start new
-	        simulatedAnnealing.perform(allsegs,{},this.renderNodes,this.updateAlTimer,stopAnnealingHandler,this);
-	      }else{
 
+	        simulatedAnnealing.perform(allsegs,{},this.renderNodes,this);
+	      }else{
+	        this.clearNodes();
 	      }
 	    },
 
@@ -233,7 +242,7 @@
 	    @memberof MapAutoLabelSupport#
 	    */
 	    clearNodes:function() {
-	      var svg = this._renderer._container; //to work with SVG
+	    var svg = this.options.renderer._container;  //to work with SVG
 	      for(var i=0;i<this._nodes.length;i++){//clear _nodes on screen
 	        svg.removeChild(this._nodes[i]);
 	      }
@@ -245,7 +254,7 @@
 	    @memberof MapAutoLabelSupport#
 	    */
 	    renderNodes:function(labelset){
-	      var svg = this._renderer._container; //to work with SVG
+	      var svg =  this.options.renderer._container;  //to work with SVG
 	      this.clearNodes(); //clearscreen
 	      for(var m=0;m<labelset.length;m++){
 	        var node = labelset[m].t.content_node;
@@ -307,7 +316,7 @@
 	  @memberof DOMEssentials#
 	  */
 	  getBoundingBox:function(map,node){
-	    var svg = map._renderer._container;
+	    var svg = map.options.renderer._container;
 	    svg.appendChild(node);
 	    var rect = node.getBoundingClientRect();
 	    var ortho_poly = this.convertClientRectToArrayOfArrays(rect);
@@ -702,7 +711,7 @@
 	  @param {Object} context: a parent conext of the function  above (arguments.callee - but deprecated)
 	  @memberof MapAutoLabelSupport#
 	  */
-	  perform:function(allsegs,options,callback,updateTimerCallback,stopAnnealingCallback,context) {
+	  perform:function(allsegs,options,callback,context) {
 	        if(allsegs.length<1){callback([])}else{
 	          var t0 = performance.now();
 	          this.processOptions(options);
@@ -714,21 +723,23 @@
 	          var doexit=curvalues[curvalues.length-1] === 0;//if no overlaping at init state, do nothing and return curretn state
 	          var iterations=0;
 	          var This=this;
-
-	          var doReturn = function(){
-	            This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
-	            var t1 = performance.now();
-	            This.dodebug('time to annealing = '+(t1-t0));
-	            updateTimerCallback.call(context,-1);
-	            callback.call(context,curset);
+	          var oldCenter = context.getCenter(), oldZoom = context.getZoom();
+	          var doReturn = function(dorender){
+	            This.dodebug('-----');
+	            if(dorender){
+	              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
+	              var t1 = performance.now();
+	              This.dodebug('time to annealing = '+(t1-t0));
+	              callback.call(context,curset);
+	            }else{
+	              This.dodebug('Map state has been changed. Terminated.');
+	            }
 	          }
 
 	          //step
-	          var timerID=setTimeout(function doStep(){
-	            if(stopAnnealingCallback.call(context)){
-	              doReturn();
-	            }
-	            updateTimerCallback.call(context,timerID); //let know map which timer we are using
+	          while(true){            
+	            var dorender=true;
+	             //let know map which timer we are using
 	            //while constant temperature, do some replacments:
 	            //  while(t>options.tmin && stepcount<options.maxsteps && !doexit
 	            if(t<=options.tmin || stepcount>=options.maxsteps)return;
@@ -744,7 +755,7 @@
 	              iterations++;
 	              if(curvalues[curvalues.length-1] === 0){
 	                This.dodebug('strict solution');
-	                doReturn();
+	                doReturn(dorender);
 	                return;
 	              }
 	              var delta = (oldvalues[oldvalues.length-1]-curvalues[curvalues.length-1]);
@@ -764,19 +775,22 @@
 	               }
 	              if(no_improve_count>=options.max_noimprove_count*curset.length){ //it is already optimal
 	                This.dodebug('stable state, finish on it');
-	                doReturn();
+	                doReturn(dorender);
 	                return;
 	              }
 	              if(improvements_count>=options.max_improvments_count*curset.length){
 	                //immediately exit cycle and decrease current t
-	                doReturn();
+	                doReturn(dorender);
 	                return;
 	              }
 	            }
 	            //decrease t
 	            t*=options.decrease_value;
-	            timerID=setTimeout(doStep,0);
-	          },0);
+	            if(iterations>5000){
+	              doReturn(dorender);
+	              return;
+	            }
+	          };
 	      }
 	  }
 	}
@@ -858,6 +872,7 @@
 	      }
 	      //else compute for lines and polygons
 	      //TODO[prepareCurSegments] add valid parsing for polygon case
+	      //TODO[prepareCurSegments]IMPORTANT clip _parts angain to about 0.9 size of screen bbox
 	      //now it is only fo lines
 	      var cursetItem=[]; //set of valid segments for this item
 	      var minimalsegsIfNoOthers=[];//set of non=valid segments, use in case if no valid there

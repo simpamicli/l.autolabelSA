@@ -1,7 +1,7 @@
 module.exports = {
     entry: "./src/MapPart.js",
     output: {
-        path: "E:/newbase/leaf/js",
+        path: "./",
         filename: "l.autolabelSA.js"
     }
 };
