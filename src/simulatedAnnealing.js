@@ -32,7 +32,7 @@ var simulatedAnnealing = {
   },
 
   obtainCandidateForPoly(ring){
-    //TODO[obtainCandidateForPoly]
+    //TODO[obtainCandidateForPoly]   
   },
   /**
   computes label candidate object to place on map

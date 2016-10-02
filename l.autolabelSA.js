@@ -34,7 +34,7 @@
 /******/ 	__webpack_require__.c = installedModules;
 
 /******/ 	// __webpack_public_path__
-/******/ 	__webpack_require__.p = "";
+/******/ 	__webpack_require__.p = "./";
 
 /******/ 	// Load entry module and return exports
 /******/ 	return __webpack_require__(0);
@@ -58,7 +58,6 @@
 
 
 	  var __onRemove = L.LayerGroup.prototype.onRemove;
-	  var __resetView=L.Map._resetView;
 	  //to include in LabelGroup
 	  /** @namespace AutoLabelingSupport*/
 	  var AutoLabelingSupport = {
@@ -85,7 +84,6 @@
 	      this._al_options.labelStyle = options.labelStyle || "fill: lime; stroke: #000000;  font-size: 20px;"; //TODO [enableAutoLabel] add ability to set unique style for each feature
 	      this._al_options.propertyName = options.propertyName || "name";
 	      this._al_options.priority = options.priority || 0; //highest
-
 	      this._map._layers2label.push(this);
 	    },
 
@@ -510,13 +508,24 @@
 	//TODO [simulatedAnnealing] maybe do as factory function - to perform independently for different map instances
 	var simulatedAnnealing = {
 
-	  obtainCandidateForPolyLine:function(seg){
+	  obtainCandidateForPolyLine:function(seg_w_len,labelLength){
+	    var seg = seg_w_len.seg, seglen = seg_w_len.seglen;
 	    var segStartPt = seg[0],segEndPt=seg[1];
 	    if(segStartPt.x>segEndPt.x){
 	      var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
 	    }
-	    var ratio = Math.random(); //where to place label along the segment
-	    var p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
+	    var p2add;
+	    //now we need not let label exceed segment length. If seg is too small, the ratio shoud be zero
+	    //so, calculate ratio as following:
+	    if(labelLength>=seglen){
+	      p2add = segStartPt;
+	    }else{
+	      var ratio = Math.random();
+	      var allowed_max_ratio = (seglen - labelLength)/seglen;//is less than 1
+	      //so
+	      ratio*=allowed_max_ratio;
+	      p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
+	    }
 	    var angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
 	    return {p2add:p2add,angle:angle};
 	  },
@@ -526,7 +535,7 @@
 	  },
 
 	  obtainCandidateForPoly(ring){
-	    //TODO[obtainCandidateForPoly]
+	    //TODO[obtainCandidateForPoly]   
 	  },
 	  /**
 	  computes label candidate object to place on map
@@ -548,7 +557,7 @@
 	      case 0:
 	        break;
 	      case 1:
-	        point_and_angle=this.obtainCandidateForPolyLine(segs[idx]);
+	        point_and_angle=this.obtainCandidateForPolyLine(segs[idx],t.poly[2][0]);
 	        break;
 	      case 2:
 	        break;
@@ -738,7 +747,7 @@
 	          }
 
 	          //step
-	          while(true){            
+	          while(true){
 	            var dorender=true;
 	             //let know map which timer we are using
 	            //while constant temperature, do some replacments:
@@ -838,6 +847,7 @@
 	            else if (layer instanceof L.CircleMarker || L.Marker){
 	              centerOrParts = this._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
 	            }
+
 	            if(centerOrParts){
 	              var toAdd = {t:{content_node:node,poly:poly},parts:centerOrParts, layertype: layer_type};
 	              pt.push(toAdd);
@@ -858,7 +868,6 @@
 	  */
 	  prepareCurSegments(ptcollection,options){
 	    options = options || {};
-	    options.minSegLen = options.minSegLen || 200;
 	    options.maxlabelcount=options.maxlabelcount || 100;
 	    if(ptcollection.length>options.maxlabelcount){ //FIXME [prepareCurSegments] not aproper way to do things, to overcome two time rendering while zooming
 	      this._map.dodebug('too much labels to compute('+ptcollection.length+'>'+options.maxlabelcount+')');
@@ -875,20 +884,26 @@
 	      //TODO[prepareCurSegments] add valid parsing for polygon case
 	      //TODO[prepareCurSegments]IMPORTANT clip _parts angain to about 0.9 size of screen bbox
 	      //now it is only fo lines
-	      var cursetItem=[]; //set of valid segments for this item
-	      var minimalsegsIfNoOthers=[];//set of non=valid segments, use in case if no valid there
-	      for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
-	        var curpart = item.parts[j];
-	        for(var k=1;k<curpart.length;k++){
-	          var a = curpart[k-1];
-	          var b = curpart[k];
-	          var ab = [a,b];
-	          if(geomEssentials.segLenOk(a,b,options.minSegLen))cursetItem.push(ab);else minimalsegsIfNoOthers.push(ab);
+	      if(item.layertype==1){
+	        var cursetItem=[]; //set of valid segments for this item
+	        var too_small_segments=[]; //set of segment which length is less the label's lebgth of corresponding feature
+	        var labelLength = item.t.poly[2][0];
+	        for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
+	          var curpart = item.parts[j];
+	          for(var k=1;k<curpart.length;k++){
+	            var a = curpart[k-1];
+	            var b = curpart[k];
+	            var ab = [a,b];
+	            var ablen = a.distanceTo(b); //compute segment length only once
+	            var what_to_push ={seg:ab,seglen:ablen};
+	            if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+	          }
 	        }
 	      }
-	      //no we have segments to deal with
-	      if(cursetItem.length===0)cursetItem = minimalsegsIfNoOthers; //if no valid segmens were found, but there are some though
-	      if(cursetItem.length>0) allsegs.push({t:item.t,segs:cursetItem,layertype:item.layertype});
+
+	      var to_all_segs = {t:item.t,layertype:item.layertype};
+	      if(cursetItem.length>0)to_all_segs.segs=cursetItem;else to_all_segs.segs=too_small_segments;
+	      allsegs.push(to_all_segs);
 	    }
 	    return allsegs;
 	  },
