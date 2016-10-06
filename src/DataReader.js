@@ -13,6 +13,7 @@ var dataReader = {
   readDataToLabel:function(){
     var pt  =[];
     if(this._map){
+      
       for(var i=0;i<this._map._layers2label.length;i++){
         var lg=this._map._layers2label[i];
         var ll2 = this._map._layers2label;
@@ -27,7 +28,11 @@ var dataReader = {
             if(layer instanceof L.Polyline || layer instanceof L.Polygon){ //polyline case
                 if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
                   layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
-                  centerOrParts=layer._parts;
+                  //TEMPORARY TOFIX
+                  if(layer_type==1){
+
+                  }
+                  else centerOrParts=layer._parts; //for polygon
                 }
               }
             else if (layer instanceof L.CircleMarker || L.Marker){

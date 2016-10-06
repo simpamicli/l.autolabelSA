@@ -2,17 +2,36 @@
 /** @namespace geomEssentials*/
 'use strict';
 var geomEssentials = {
-  /**
-  check if segment from a to b is longer then minlen
-  @param {L.Point} a: start of the segment
-  @param {L.Point} b: end of the segment
-  @param {float} minlen:
-  @memberof geomEssentials#
-  */
-  segLenOk:function(a,b,minlen){
-    return a.distanceTo(b)>=minlen;
-  },
 
+  /**
+  code from leaflet src, without some lines
+  */
+  clipPoints: function (points,bounds) {
+    var parts = [], j, k=0, len2, segment;
+		for (j = 0, len2 = points.length; j < len2 - 1; j++) {
+			segment = L.LineUtil.clipSegment(points[j], points[j + 1], bounds, j, true);
+			if (!segment) { continue; }
+			parts[k] = parts[k] || [];
+			parts[k].push(segment[0]);
+			// if segment goes out of screen, or it's the last one, it's the end of the line part
+			if ((segment[1] !== points[j + 1]) || (j === len2 - 2)) {
+				parts[k].push(segment[1]);
+				k++;
+			}
+		}
+    return parts;
+	},
+
+  /**
+  scales bounds by multiplying it's size with scalefactor, and keeping center
+  */
+  scaleBounds:function(bounds,scalefactor{
+    var origin = bounds.getCenter();
+    var newHalfSize = bounds.getSize().multiplyBy(scalefactor/2);
+    var newTopLeft = origin.subtract(newHalfSize);
+    var newBotRight = origin.add(newHalfSize);
+    return L.bounds(newTopLeft,newBotRight);
+  }
   /**
   moves a poly by adding pt2add point to all its vertices
   @param {Array} poly: a poly to movePoly
