@@ -140,7 +140,8 @@
       if(this._map._ctimerID!=-1)clearTimeout(this._map._ctimerID);
       if(this._map._zoomstarttrig==0){
         var _this=this._map;
-        this._map._ctimerID=setTimeout(function(){_this._doAutoLabel()},this._al_options.labelsDelay);
+        ////
+        this._map._ctimerID=setTimeout(function(){_this._doAutoLabel()},_this._al_options.labelsDelay);
       }
       this._map._clearNodes();
     },
@@ -162,7 +163,9 @@
           this._clearNodes();
           return;
         }
+        this.additionalNodes=this._prepareClippedToRender(allsegs);
         simulatedAnnealing.perform(allsegs,{},this._renderNodes,this);
+        delete this.additionalNodes;
       }else{
         this._clearNodes();
       }
@@ -183,6 +186,25 @@
       node.setAttribute('points', points.trim());
       node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
       return node;
+    },
+    /**
+    for test purposes
+    */
+    _prepareClippedToRender:function(allsegs){
+      var nodes=[];
+      var item,seg;
+      for(item in allsegs){
+        for(seg in item.segs){
+          var node = L.SVG.create('line');
+          node.setAttribute('x1', seg[0].x);
+          node.setAttribute('y1', seg[0].x);
+          node.setAttribute('x2', seg[1].x);
+          node.setAttribute('y2', seg[1].y);
+          node.setAttribute('style','stroke-width:3; stroke: white;');
+          nodes.push(node);
+        }
+      }
+      return nodes;
     },
 
     /**
@@ -215,6 +237,12 @@
         node.setAttribute('transform',transform);
         svg.appendChild(node);
         this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
+        if(this.additionalNodes){
+          for(n in this.additionalNodes){
+            svg.appendChild(n);
+            this._nodes.push(n);
+          }
+        }
         if(this._al_options.showBBoxes){
           //here for testing purposes
           var polynode = this._createPolygonNode(labelset[m].poly);

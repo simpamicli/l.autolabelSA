@@ -29,7 +29,7 @@ var dataReader = {
                 if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
                   layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
                   //TEMPORARY TOFIX
-                  if(layer_type==1 && this._map._al_options.checkLabelsInside){
+                  if(layer_type==1 && map_to_add._al_options.checkLabelsInside){
                       centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
                   }
                   else centerOrParts=layer._parts; //for polygon
@@ -38,7 +38,6 @@ var dataReader = {
             else if (layer instanceof L.CircleMarker || L.Marker){
               centerOrParts = this._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
             }
-
             if(centerOrParts.length>0){
               var toAdd = {t:{content_node:node,poly:poly},parts:centerOrParts, layertype: layer_type};
               pt.push(toAdd);
@@ -54,7 +53,7 @@ var dataReader = {
   /**
   extracts good segments from available polyline parts and converts to use in next procedures of pos estimation
   @param {Array} ptcollection: each item is conatiner with t:label to draw for this polyline, parts - parts of this pline visible on screen in pixel coords
-  @param {Set} options: options are: {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
+  @param {Set} options: options are:  {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
   @memberof MapAutoLabelSupport#
   */
   prepareCurSegments(ptcollection,options){

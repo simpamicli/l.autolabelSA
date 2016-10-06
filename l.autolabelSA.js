@@ -1,41 +1,41 @@
 /******/ (function(modules) { // webpackBootstrap
 /******/ 	// The module cache
 /******/ 	var installedModules = {};
-/******/
+
 /******/ 	// The require function
 /******/ 	function __webpack_require__(moduleId) {
-/******/
+
 /******/ 		// Check if module is in cache
 /******/ 		if(installedModules[moduleId])
 /******/ 			return installedModules[moduleId].exports;
-/******/
+
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = installedModules[moduleId] = {
 /******/ 			exports: {},
 /******/ 			id: moduleId,
 /******/ 			loaded: false
 /******/ 		};
-/******/
+
 /******/ 		// Execute the module function
 /******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-/******/
+
 /******/ 		// Flag the module as loaded
 /******/ 		module.loaded = true;
-/******/
+
 /******/ 		// Return the exports of the module
 /******/ 		return module.exports;
 /******/ 	}
-/******/
-/******/
+
+
 /******/ 	// expose the modules object (__webpack_modules__)
 /******/ 	__webpack_require__.m = modules;
-/******/
+
 /******/ 	// expose the module cache
 /******/ 	__webpack_require__.c = installedModules;
-/******/
+
 /******/ 	// __webpack_public_path__
 /******/ 	__webpack_require__.p = "./";
-/******/
+
 /******/ 	// Load entry module and return exports
 /******/ 	return __webpack_require__(0);
 /******/ })
@@ -46,17 +46,17 @@
 
 	(function () {
 	  "use strict";
-	
+
 	   //TODO [general] test with diffenrent files
 	   //TODO [general] add point and polygon labeling
 	   //TODO [general] add text along path support
-	
+
 	  var DOMEssentials = __webpack_require__(1);
 	  var geomEssentials = __webpack_require__(2);
 	  var simulatedAnnealing = __webpack_require__(3);
 	  var dataReader = __webpack_require__(4);
-	
-	
+
+
 	  var __onRemove = L.LayerGroup.prototype.onRemove;
 	  //to include in LabelGroup
 	  /** @namespace AutoLabelingSupport*/
@@ -69,8 +69,8 @@
 	      this.disableAutoLabel();
 	        __onRemove.call(this, map);
 	    },
-	
-	
+
+
 	    /**
 	     enable autolabeling for this layerGroup, additionally set the current_map variable if it is undefined and hooks label painting on moveend /zoomend events
 	     it adds this layerGroup to the _layers2label array, so _doAutoLabel function will know about this layerGroup
@@ -86,7 +86,7 @@
 	      this._al_options.priority = options.priority || 0; //highest
 	      this._map._layers2label.push(this);
 	    },
-	
+
 	    /**
 	    Obtain autlabelling state for this layerGroup
 	    @memberof AutoLabelingSupport#
@@ -96,7 +96,7 @@
 	      if(!this._map._layers2label)return false;
 	      return this._map._layers2label.indexOf(this)!=-1;
 	    },
-	
+
 	    /**
 	    disable autolabelling
 	    @memberof AutoLabelingSupport#
@@ -113,7 +113,7 @@
 	      }
 	    }
 	  }
-	
+
 	  //to include in Map
 	  /** @namespace MapAutoLabelSupport*/
 	  var MapAutoLabelSupport = {
@@ -139,8 +139,8 @@
 	      this._al_options.deleteIfNoSolution = opts.deleteIfNoSolution || false; //TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
 	      this._al_options.doNotShowIfSegIsTooSmall = opts.doNotShowIfSegIsTooSmall || false; //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
 	    },
-	
-	
+
+
 	    /**
 	    toggles autolabeling
 	    @memberof MapAutoLabelSupport#
@@ -163,13 +163,13 @@
 	      this.on("zoomend",function(){this._zoomstarttrig=0});
 	      this._autoLabel = true;
 	    },
-	
+
 	    //to check if zoomstart event is fired to prevent autolabeling BEFORE zoomend
 	    _zoomstarttrig:0,
-	
+
 	    //id of timeout after which AutoLabeling should be done each time - used to stop timer in case of changed map state BEFORE autolabelling was performed
 	    _ctimerID:-1,
-	
+
 	    /**
 	    disable autolabeling for this map
 	    @memberof MapAutoLabelSupport#
@@ -178,7 +178,7 @@
 	      this.options.renderer.on("update",this._apply_doAutoLabel);
 	      this._autoLabel=false;
 	    },
-	
+
 	    /*
 	    beacuse we using update event of renderer, here we switching to map context and handling two-time update event of SVG renderer
 	    */
@@ -186,15 +186,16 @@
 	      if(this._map._ctimerID!=-1)clearTimeout(this._map._ctimerID);
 	      if(this._map._zoomstarttrig==0){
 	        var _this=this._map;
-	        this._map._ctimerID=setTimeout(function(){_this._doAutoLabel()},this._al_options.labelsDelay);
+	        ////
+	        this._map._ctimerID=setTimeout(function(){_this._doAutoLabel()},_this._al_options.labelsDelay);
 	      }
 	      this._map._clearNodes();
 	    },
-	
+
 	    _dodebug:function(message){
 	      if(this._al_options.debug)console.log(message);
 	    },
-	
+
 	    /**
 	    this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
 	    */
@@ -208,12 +209,14 @@
 	          this._clearNodes();
 	          return;
 	        }
+	        this.additionalNodes=this._prepareClippedToRender(allsegs);
 	        simulatedAnnealing.perform(allsegs,{},this._renderNodes,this);
+	        delete this.additionalNodes;
 	      }else{
 	        this._clearNodes();
 	      }
 	    },
-	
+
 	    /**
 	    for test purposes now, creates a polygon node useing poly Array of points
 	    @param {Array} poly
@@ -230,7 +233,26 @@
 	      node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
 	      return node;
 	    },
-	
+	    /**
+	    for test purposes
+	    */
+	    _prepareClippedToRender:function(allsegs){
+	      var nodes=[];
+	      var item,seg;
+	      for(item in allsegs){
+	        for(seg in item.segs){
+	          var node = L.SVG.create('line');
+	          node.setAttribute('x1', seg[0].x);
+	          node.setAttribute('y1', seg[0].x);
+	          node.setAttribute('x2', seg[1].x);
+	          node.setAttribute('y2', seg[1].y);
+	          node.setAttribute('style','stroke-width:3; stroke: white;');
+	          nodes.push(node);
+	        }
+	      }
+	      return nodes;
+	    },
+
 	    /**
 	    clears label on the screen
 	    @memberof MapAutoLabelSupport#
@@ -242,7 +264,7 @@
 	      }
 	      this._nodes=[];
 	    },
-	
+
 	    /**
 	    renders computed labelset on the screen via svg
 	    @memberof MapAutoLabelSupport#
@@ -261,6 +283,12 @@
 	        node.setAttribute('transform',transform);
 	        svg.appendChild(node);
 	        this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
+	        if(this.additionalNodes){
+	          for(n in this.additionalNodes){
+	            svg.appendChild(n);
+	            this._nodes.push(n);
+	          }
+	        }
 	        if(this._al_options.showBBoxes){
 	          //here for testing purposes
 	          var polynode = this._createPolygonNode(labelset[m].poly);
@@ -270,7 +298,7 @@
 	      }
 	    }
 	  }
-	
+
 	  L.LayerGroup.include(AutoLabelingSupport);
 	  L.Map.include(MapAutoLabelSupport);
 	})();
@@ -284,7 +312,7 @@
 	/** @namespace DOMEssentials*/
 	'use strict';
 	var geomEssentials = __webpack_require__(2);
-	
+
 	var DOMEssentials = {
 	  /**
 	  converts TextRectangle object to clockwise array of 2d-arrays, representing rectangular poly
@@ -302,7 +330,7 @@
 	    res=geomEssentials.movePolyByAdding(res,[0,height_correction]);
 	    return res;
 	  },
-	
+
 	  /**
 	  returns a bounding box for horizontal text with style as in t.content_node
 	  @param {Object} t: consist of content_node (SVG text) and this function is adding a new property called 'poly' contatining bbox in format [four points of bbox]
@@ -317,7 +345,7 @@
 	    svg.removeChild(node);
 	    return ortho_poly;
 	  },
-	
+
 	  createSVGTextNode:function(text,textstyle){
 	    text = text.replace(/ /g, '\u00A0');  // Non breakable spaces
 	    var node =L.SVG.create('text');
@@ -326,7 +354,7 @@
 	    return node;
 	  }
 	}
-	
+
 	module.exports = DOMEssentials;
 
 
@@ -338,7 +366,7 @@
 	/** @namespace geomEssentials*/
 	'use strict';
 	var geomEssentials = {
-	
+
 	  /**
 	  code from leaflet src, without some lines
 	  we assume here, that clipPoints was already invoked
@@ -361,12 +389,12 @@
 	    }
 	    return parts;
 		},
-	
+
 	  roundPoint:function(p){
 	    var res= L.point(Math.round(p.x),Math.round(p.y));
 	    return res;
 	  },
-	
+
 	  /**
 	  scales bounds by multiplying it's size with scalefactor, and keeping center
 	  */
@@ -377,7 +405,7 @@
 	    var newBotRight = origin.add(newHalfSize);
 	    return L.bounds(this.roundPoint(newTopLeft),this.roundPoint(newBotRight));
 	  },
-	
+
 	  /**
 	  the name is the description
 	  */
@@ -404,7 +432,7 @@
 	    }
 	    return res;
 	  },
-	
+
 	  /**
 	  moves a poly by translating all its vertices to moveto
 	  @param {Array} poly: a poly to movePoly
@@ -428,7 +456,7 @@
 	  computeAngle: function(a, b) {
 	      return (Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI);
 	  },
-	
+
 	  /**
 	  code from L.GeometryUtil plugin
 	  @memberof geomEssentials#
@@ -439,7 +467,7 @@
 	          (pA.y * (1 - ratio)) + (ratio * pB.y)
 	      );
 	  },
-	
+
 	  /**
 	  function from https://rosettacode.org/wiki/Sutherland-Hodgman_polygon_clipping#JavaScript
 	  @param {Array} subjectPolygon: first poly
@@ -484,7 +512,7 @@
 	    }
 	    return outputList
 	  },
-	
+
 	  /**
 	  code from http://www.codeproject.com/Articles/13467/A-JavaScript-Implementation-of-the-Surveyor-s-Form
 	  @param {Array} poly: a poly to determine area of
@@ -507,7 +535,7 @@
 	    }
 	    return area;
 	  },
-	
+
 	  /**
 	  rotates given polygon to a given angle around basepoint
 	  code partialy from web, don't remember from...
@@ -529,7 +557,7 @@
 	    return res;
 	  }
 	}
-	
+
 	module.exports = geomEssentials;
 
 
@@ -538,12 +566,12 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
-	
+
 	var geomEssentials = __webpack_require__(2);
-	
+
 	//TODO [simulatedAnnealing] maybe do as factory function - to perform independently for different map instances
 	var simulatedAnnealing = {
-	
+
 	  obtainCandidateForPolyLine:function(seg_w_len,labelLength){
 	    if(!seg_w_len){
 	      return;
@@ -568,11 +596,11 @@
 	    var angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
 	    return {p2add:p2add,angle:angle};
 	  },
-	
+
 	  obtainCandidateForPoint(point){
 	    //TODO[obtainCandidateForPoint]
 	  },
-	
+
 	  obtainCandidateForPoly(ring){
 	    //TODO[obtainCandidateForPoly]
 	  },
@@ -591,7 +619,7 @@
 	    var idx = Math.floor((Math.random() * segs.length) ); //choose the segment index from parts visible on screeen
 	    var poly,point_and_angle;
 	    poly = allsegs[i].t.poly;
-	
+
 	    switch (allsegs[i].layertype) {
 	      case 0:
 	        break;
@@ -601,14 +629,14 @@
 	      case 2:
 	        break;
 	    }
-	
+
 	    if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
 	    poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
 	    //TODO [computeLabelCandidate] check, if any of poly points outside the screen, if so, slide it along the segment to achieve no point such
 	    var res={t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};
 	    return res;
 	  },
-	
+
 	  /**
 	  clones element of curset
 	  @param {Number} index:
@@ -621,7 +649,7 @@
 	    cancopy.poly = curset[index].poly.slice(0);
 	    return cancopy;
 	  },
-	
+
 	  /**
 	  computes the random set of positions for text placement with angles and text values
 	  @param {Array} allsegs: an array with {t,segs} elements, according to t -text of the polyline, segs - its accepted segments to label on. Result array is generated from items of this array
@@ -636,7 +664,7 @@
 	    }
 	    return res;
 	  },
-	
+
 	  /**
 	  swaps position for a random label with another from this label's positions pool
 	  @param {Number} index : index of label in allsegs to select new random position from availavle choices.
@@ -649,7 +677,7 @@
 	    var new_candidate = this.computeLabelCandidate(label_index,allsegs);
 	    curset[idx]=new_candidate;
 	  },
-	
+
 	  /**
 	  check if two labels overlab, if no returns false, if yes returns ???area OR polygon??? of averlap
 	  @param {} poly1:a first polygon to check overlap with second
@@ -665,7 +693,7 @@
 	    };
 	    if(clipped.length>0)return 1;else return 0; //for performance, skip area calculation
 	  },
-	
+
 	  /**
 	  may be a custom function, must add result as last value of input array
 	  @param {Array} overlapping_values: input array of areas
@@ -678,7 +706,7 @@
 	    }
 	    overlapping_values.push(res);
 	  },
-	
+
 	  /**
 	  summarizing ovelapping of all layers. We store for each label it's total overlapping area with others, the sum values for all labels
 	  @param {Array}:curset:
@@ -703,7 +731,7 @@
 	    this.assignCostFunctionValuesToLastEl(overlap_values);
 	    return overlap_values;
 	  },
-	
+
 	  /**
 	  calculates total overlapping area with knowlesge of previous value and what label was moved
 	  @param {Array} curvalue: array of float computed at previous step or initital step, consist of elements of lower-triangluar matrix (i,j) of values of overlapping areas for (i,j) els of curset
@@ -728,11 +756,11 @@
 	    this.assignCostFunctionValuesToLastEl(curvalues);
 	    return curvalues;
 	  },
-	
+
 	  dodebug:function(message){
 	    if(this.options.debug)console.log(message);
 	  },
-	
+
 	  processOptions:function(options){
 	    this.options=options || {};
 	    this.options.t0 = this.options.t0 || 2.5;
@@ -747,11 +775,11 @@
 	    this.options.debug=this.options.debug || true;
 	    this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
 	  },
-	
+
 	  stopCalc:function(timerID,callback){
-	
+
 	  },
-	
+
 	  /**
 	  find optimal label placement based on simulated annealing approach, relies on paper https://www.eecs.harvard.edu/shieber/Biblio/Papers/jc.label.pdf
 	  @param {Array} allsegs: an arr with labels and their available line segments to place
@@ -784,7 +812,7 @@
 	              This.dodebug('Map state has been changed. Terminated.');
 	            }
 	          }
-	
+
 	          //step
 	          while(true){
 	            var dorender=true;
@@ -843,7 +871,7 @@
 	      }
 	  }
 	}
-	
+
 	module.exports = simulatedAnnealing;
 
 
@@ -856,7 +884,7 @@
 	*/
 	var DOMEssentials = __webpack_require__(1);
 	var geomEssentials = __webpack_require__(2);
-	
+
 	var dataReader = {
 	  /**
 	  creates an array of features's segments for each feature  of layers2label's layers on screen along with SVG text corresponding to
@@ -882,7 +910,7 @@
 	                if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
 	                  layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
 	                  //TEMPORARY TOFIX
-	                  if(layer_type==1 && this._map._al_options.checkLabelsInside){
+	                  if(layer_type==1 && map_to_add._al_options.checkLabelsInside){
 	                      centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
 	                  }
 	                  else centerOrParts=layer._parts; //for polygon
@@ -891,7 +919,6 @@
 	            else if (layer instanceof L.CircleMarker || L.Marker){
 	              centerOrParts = this._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
 	            }
-	
 	            if(centerOrParts.length>0){
 	              var toAdd = {t:{content_node:node,poly:poly},parts:centerOrParts, layertype: layer_type};
 	              pt.push(toAdd);
@@ -903,11 +930,11 @@
 	    }
 	    return pt;
 	  },
-	
+
 	  /**
 	  extracts good segments from available polyline parts and converts to use in next procedures of pos estimation
 	  @param {Array} ptcollection: each item is conatiner with t:label to draw for this polyline, parts - parts of this pline visible on screen in pixel coords
-	  @param {Set} options: options are: {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
+	  @param {Set} options: options are:  {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
 	  @memberof MapAutoLabelSupport#
 	  */
 	  prepareCurSegments(ptcollection,options){
@@ -944,7 +971,7 @@
 	          }
 	        }
 	      }
-	
+
 	      var to_all_segs = {t:item.t,layertype:item.layertype};
 	      if(cursetItem.length>0)to_all_segs.segs=cursetItem;else to_all_segs.segs=too_small_segments;
 	      allsegs.push(to_all_segs);
@@ -952,10 +979,9 @@
 	    return allsegs;
 	  },
 	}
-	
+
 	module.exports = dataReader;
 
 
 /***/ }
 /******/ ]);
-//# sourceMappingURL=l.autolabelSA.js.map
