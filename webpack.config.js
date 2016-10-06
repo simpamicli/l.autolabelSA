@@ -4,5 +4,6 @@ module.exports = {
         path: "./",
 		publicPath: "./",
         filename: "l.autolabelSA.js"
-    }
+    },
+	devtool: 'source-map'
 };

@@ -5,33 +5,55 @@ var geomEssentials = {
 
   /**
   code from leaflet src, without some lines
+  we assume here, that clipPoints was already invoked
   */
-  clipPoints: function (points,bounds) {
-    var parts = [], j, k=0, len2, segment;
-		for (j = 0, len2 = points.length; j < len2 - 1; j++) {
-			segment = L.LineUtil.clipSegment(points[j], points[j + 1], bounds, j, true);
-			if (!segment) { continue; }
-			parts[k] = parts[k] || [];
-			parts[k].push(segment[0]);
-			// if segment goes out of screen, or it's the last one, it's the end of the line part
-			if ((segment[1] !== points[j + 1]) || (j === len2 - 2)) {
-				parts[k].push(segment[1]);
-				k++;
-			}
-		}
+  clipClippedPoints: function (layer_parts,bounds) {
+    var parts = [], i, j, k=0,len, len2, segment,points;
+    for (i = 0, k = 0, len = layer_parts.length; i < len; i++) {
+			points = layer_parts[i];
+  		for (j = 0, len2 = points.length; j < len2 - 1; j++) {
+  			segment = L.LineUtil.clipSegment(points[j], points[j + 1], bounds, j, true);
+  			if (!segment) { continue; }
+  			parts[k] = parts[k] || [];
+  			parts[k].push(segment[0]);
+  			// if segment goes out of screen, or it's the last one, it's the end of the line part
+  			if ((segment[1] !== points[j + 1]) || (j === len2 - 2)) {
+  				parts[k].push(segment[1]);
+  				k++;
+  			}
+  		}
+    }
     return parts;
 	},
+
+  roundPoint:function(p){
+    var res= L.point(Math.round(p.x),Math.round(p.y));
+    return res;
+  },
 
   /**
   scales bounds by multiplying it's size with scalefactor, and keeping center
   */
-  scaleBounds:function(bounds,scalefactor{
+  scaleBounds:function(bounds,scalefactor){
     var origin = bounds.getCenter();
     var newHalfSize = bounds.getSize().multiplyBy(scalefactor/2);
     var newTopLeft = origin.subtract(newHalfSize);
     var newBotRight = origin.add(newHalfSize);
-    return L.bounds(newTopLeft,newBotRight);
-  }
+    return L.bounds(this.roundPoint(newTopLeft),this.roundPoint(newBotRight));
+  },
+
+  /**
+  the name is the description
+  */
+  getBoundsWithoutPadding(themap,scaleafter){
+    var bounds =themap.options.renderer._bounds;
+    //to get zero padding we should scale bounds by 1 / (1 + current_padding), and then we want to scale by scaleafter
+    //for example, default padding is 0.1, which means 110% of map container pixel bounds to render, so zise of basic ixels bounds is multiplied by 1.1getPixelBounds()
+    var current_padding = themap.options.renderer.padding || 0.1;
+    var scale_to_apply = scaleafter/(1+current_padding);
+    return this.scaleBounds(bounds,scaleafter);
+    //return bounds;
+  },
   /**
   moves a poly by adding pt2add point to all its vertices
   @param {Array} poly: a poly to movePoly

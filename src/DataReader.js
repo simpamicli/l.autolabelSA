@@ -13,7 +13,7 @@ var dataReader = {
   readDataToLabel:function(){
     var pt  =[];
     if(this._map){
-      
+      var bounds_to_contain_labels = geomEssentials.getBoundsWithoutPadding(this._map,0.9); // if needed
       for(var i=0;i<this._map._layers2label.length;i++){
         var lg=this._map._layers2label[i];
         var ll2 = this._map._layers2label;
@@ -24,13 +24,13 @@ var dataReader = {
             var node =DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle);
             var poly = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
             var layer_type = 0;
-            var centerOrParts;
+            var centerOrParts=[];
             if(layer instanceof L.Polyline || layer instanceof L.Polygon){ //polyline case
                 if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
                   layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
                   //TEMPORARY TOFIX
-                  if(layer_type==1){
-
+                  if(layer_type==1 && this._map._al_options.checkLabelsInside){
+                      centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
                   }
                   else centerOrParts=layer._parts; //for polygon
                 }
@@ -39,7 +39,7 @@ var dataReader = {
               centerOrParts = this._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
             }
 
-            if(centerOrParts){
+            if(centerOrParts.length>0){
               var toAdd = {t:{content_node:node,poly:poly},parts:centerOrParts, layertype: layer_type};
               pt.push(toAdd);
             }

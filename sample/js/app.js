@@ -8,11 +8,11 @@ var googleHybrid = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z=
 
 var map = new L.Map('map',{renderer:L.svg()}).addLayer(osm).setView(new L.LatLng(60, 30), 10);
 map.addControl(new L.Control.Layers( {'Карта':osm, 'Спутник':googleHybrid}, {}));
-//map.setAutoLabelOptions({showBBoxes:true});
+map.setAutoLabelOptions({labelsDelay:500});
 map.toggleAutoLabelling();
- map.options.renderer.on("update",function(){console.log("updateds")});
- map.on("zoomstart",function(){console.log("zoom st")});
- map.on("zoomend",function(){console.log("zoom fin")});
- map.on("moveend",function(){console.log("move fin")});
- map.on("movestart",function(){console.log("move st")});
+ // map.options.renderer.on("update",function(){console.log("updateds")});
+ // map.on("zoomstart",function(){console.log("zoom st")});
+ // map.on("zoomend",function(){console.log("zoom fin")});
+ // map.on("moveend",function(){console.log("move fin")});
+ // map.on("movestart",function(){console.log("move st")});
 //map.on("viewreset",function(){console.log("vr fin")});

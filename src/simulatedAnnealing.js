@@ -6,6 +6,9 @@ var geomEssentials = require("./geomEssentials.js");
 var simulatedAnnealing = {
 
   obtainCandidateForPolyLine:function(seg_w_len,labelLength){
+    if(!seg_w_len){
+      return;
+    }
     var seg = seg_w_len.seg, seglen = seg_w_len.seglen;
     var segStartPt = seg[0],segEndPt=seg[1];
     if(segStartPt.x>segEndPt.x){
@@ -32,7 +35,7 @@ var simulatedAnnealing = {
   },
 
   obtainCandidateForPoly(ring){
-    //TODO[obtainCandidateForPoly]   
+    //TODO[obtainCandidateForPoly]
   },
   /**
   computes label candidate object to place on map

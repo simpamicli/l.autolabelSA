@@ -85,6 +85,9 @@
       this._al_options = opts || {};
       this._al_options.showBBoxes = opts.showBBoxes ||false; //display bounding boxes around texts
       this._al_options.debug = opts.debug || true; //show debug info in hte cons
+      this._al_options.labelsDelay = opts.labelsDelay || 1000; //a time after update event of renderer when labelling should start, if zero - errors while zooming
+      this._al_options.checkLabelsInside = opts.checkLabelsInside || true; //re-clip all segments to entirely fit map window without padding,
+                                                                           //disabling increases performance, but some labels maybe invisible due to padding of renderer
       this._al_options.zoomToStartLabel = opts.zoomToStartLabel || 13; //if map zoom lev is below this, do not show labels
       this._al_options.minimizeTotalOverlappingArea = opts.minimizeTotalOverlappingArea || false; //if true, minimize not the count of overlapping labels, but instead their total overlapping area
       this._al_options.deleteIfNoSolution = opts.deleteIfNoSolution || false; //TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
@@ -109,7 +112,6 @@
         return;
       }
       this.setAutoLabelOptions(this._al_options);
-      //this.on("zoomend",this._apply_doAutoLabel);
       this.options.renderer.on("update",this._apply_doAutoLabel);
       this.on("zoomstart",function(){this._zoomstarttrig=1});
       this.on("zoomend",function(){this._zoomstarttrig=0});
@@ -121,15 +123,13 @@
 
     //id of timeout after which AutoLabeling should be done each time - used to stop timer in case of changed map state BEFORE autolabelling was performed
     _ctimerID:-1,
+
     /**
     disable autolabeling for this map
     @memberof MapAutoLabelSupport#
     */
     disableAutoLabel:function(){
       this.options.renderer.on("update",this._apply_doAutoLabel);
-      //this.off("zoomend",this._apply_doAutoLabel);
-      //._resetView = __resetView;
-      //this.off("moveend ",this._doAutoLabel);
       this._autoLabel=false;
     },
 
@@ -140,7 +140,7 @@
       if(this._map._ctimerID!=-1)clearTimeout(this._map._ctimerID);
       if(this._map._zoomstarttrig==0){
         var _this=this._map;
-        this._map._ctimerID=setTimeout(function(){_this._doAutoLabel()},1000);
+        this._map._ctimerID=setTimeout(function(){_this._doAutoLabel()},this._al_options.labelsDelay);
       }
       this._map._clearNodes();
     },
@@ -151,22 +151,17 @@
 
     /**
     this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
-    TODO [_doAutoLabel] add populateOkSegments func
-    @memberof MapAutoLabelSupport#
     */
     _doAutoLabel:function() {
       if(!this._autoLabel)return; //nothing to do here
       if(this.getZoom()>this._al_options.zoomToStartLabel){
         dataReader._map=this;
         var pt  =dataReader.readDataToLabel() //array for storing paths and values
-        var allsegs=dataReader.prepareCurSegments(pt,{minSegLen:5,maxlabelcount:50});
+        var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:50});
         if(allsegs.length==0){
           this._clearNodes();
           return;
         }
-        //TODO [_doAutoLabel] stop simulatedAnnealing from previous iteration before starting new
-        //start new
-
         simulatedAnnealing.perform(allsegs,{},this._renderNodes,this);
       }else{
         this._clearNodes();

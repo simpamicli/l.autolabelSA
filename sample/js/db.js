@@ -45,7 +45,7 @@
     		}
     		if (map.getZoom() >=14 && map.hasLayer(opl) == false )
     		{
-    			map.addLayer(opl);
+    		//	map.addLayer(opl);
     		}
       }
   	}
