@@ -163,9 +163,7 @@
           this._clearNodes();
           return;
         }
-        this.additionalNodes=this._prepareClippedToRender(allsegs);
         simulatedAnnealing.perform(allsegs,{},this._renderNodes,this);
-        delete this.additionalNodes;
       }else{
         this._clearNodes();
       }
@@ -192,9 +190,9 @@
     */
     _prepareClippedToRender:function(allsegs){
       var nodes=[];
-      var item,seg;
-      for(item in allsegs){
-        for(seg in item.segs){
+      for(var i in allsegs){
+        for(var j in allsegs[i].segs){
+          var seg = allsegs[i].segs[j].seg;
           var node = L.SVG.create('line');
           node.setAttribute('x1', seg[0].x);
           node.setAttribute('y1', seg[0].x);
@@ -237,12 +235,6 @@
         node.setAttribute('transform',transform);
         svg.appendChild(node);
         this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
-        if(this.additionalNodes){
-          for(n in this.additionalNodes){
-            svg.appendChild(n);
-            this._nodes.push(n);
-          }
-        }
         if(this._al_options.showBBoxes){
           //here for testing purposes
           var polynode = this._createPolygonNode(labelset[m].poly);
