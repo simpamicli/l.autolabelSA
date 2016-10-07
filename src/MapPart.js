@@ -60,9 +60,8 @@
 
 
   L.LayerGroup.include(AutoLabelingSupport);
-  L.Map.include({autoLabeler});
   L.Map.addInitHook(function(){
-    this.autoLabeler._map=this;
+    this.autoLabeler=L.autoLabeler(this);
   })
 
 })();
