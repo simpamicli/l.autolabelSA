@@ -47,15 +47,7 @@
 	(function () {
 	  "use strict";
 
-	   //TODO [general] test with diffenrent files
-	   //TODO [general] add point and polygon labeling
-	   //TODO [general] add text along path support
-
-	  var DOMEssentials = __webpack_require__(1);
-	  var geomEssentials = __webpack_require__(2);
-	  var simulatedAnnealing = __webpack_require__(3);
-	  var dataReader = __webpack_require__(4);
-
+	  var autoLabeler = __webpack_require__(1);
 
 	  var __onRemove = L.LayerGroup.prototype.onRemove;
 	  //to include in LabelGroup
@@ -79,12 +71,12 @@
 	    */
 	    enableAutoLabel:function(options){
 	      if(!this._map)return;
-	      if(!this._map._layers2label)return;
+	      if(!this._map.autoLabeler)return;
 	      this._al_options = options || {};
 	      this._al_options.labelStyle = options.labelStyle || "fill: lime; stroke: #000000;  font-size: 20px;"; //TODO [enableAutoLabel] add ability to set unique style for each feature
 	      this._al_options.propertyName = options.propertyName || "name";
 	      this._al_options.priority = options.priority || 0; //highest
-	      this._map._layers2label.push(this);
+	      this._map.autoLabeler.addLayer(this);
 	    },
 
 	    /**
@@ -93,8 +85,8 @@
 	    @returns {Boolean}
 	    */
 	    autoLabelEnabled:function(){
-	      if(!this._map._layers2label)return false;
-	      return this._map._layers2label.indexOf(this)!=-1;
+	      if(!this._map.autoLabeler)return false;
+	      return this._map.autoLabeler.hasLayer(this);
 	    },
 
 	    /**
@@ -102,197 +94,23 @@
 	    @memberof AutoLabelingSupport#
 	    */
 	    disableAutoLabel:function(){
-	      if(!this._map._layers2label){
+	      if(!this._map.autoLabeler){
 	        delete this._al_options;
 	        return;
 	      }
-	      var ind=this._map._layers2label.indexOf(this);
-	      if(ind>=0){
-	        this._map._layers2label.splice(ind,1);
+	      if(this._map.autoLabeler.remLayer(this)){
 	        delete this._al_options;
 	      }
 	    }
 	  }
 
-	  //to include in Map
-	  /** @namespace MapAutoLabelSupport*/
-	  var MapAutoLabelSupport = {
-	    _nodes:[], //an array for storing SVG node to draw while autolabelling
-	    _layers2label:[], //an array to know which layergroups are to label
-	    _al_options:{}, //autolabel options for this map
-	    //_al_timerID:-1, //variable to store current timer ID of simulated annealing timer - used for terminating annealing job
-	    _autoLabel:false, //to detrmine if autolabelling is set for this map
-	    /**
-	    set global options for auto-labelling
-	    @param {OBject} opts: see code
-	    @memberof MapAutoLabelSupport#
-	    */
-	    setAutoLabelOptions: function (opts) {
-	      this._al_options = opts || {};
-	      this._al_options.showBBoxes = opts.showBBoxes ||false; //display bounding boxes around texts
-	      this._al_options.debug = opts.debug || true; //show debug info in hte cons
-	      this._al_options.labelsDelay = opts.labelsDelay || 1000; //a time after update event of renderer when labelling should start, if zero - errors while zooming
-	      this._al_options.checkLabelsInside = opts.checkLabelsInside || true; //re-clip all segments to entirely fit map window without padding,
-	                                                                           //disabling increases performance, but some labels maybe invisible due to padding of renderer
-	      this._al_options.zoomToStartLabel = opts.zoomToStartLabel || 13; //if map zoom lev is below this, do not show labels
-	      this._al_options.minimizeTotalOverlappingArea = opts.minimizeTotalOverlappingArea || false; //if true, minimize not the count of overlapping labels, but instead their total overlapping area
-	      this._al_options.deleteIfNoSolution = opts.deleteIfNoSolution || false; //TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
-	      this._al_options.doNotShowIfSegIsTooSmall = opts.doNotShowIfSegIsTooSmall || false; //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
-	    },
-
-
-	    /**
-	    toggles autolabeling
-	    @memberof MapAutoLabelSupport#
-	    */
-	    toggleAutoLabelling:function(){ //this not tested yet
-	      if(this._autoLabel)this.disableAutoLabel();else this.enableAutoLabel();
-	    },
-	    /**
-	    enable autolabeling for this map
-	    @memberof MapAutoLabelSupport#
-	    */
-	    enableAutoLabel:function(){
-	      if(!this.options.renderer){
-	        this._dodebug('renderer is invalid');
-	        return;
-	      }
-	      this.setAutoLabelOptions(this._al_options);
-	      this.options.renderer.on("update",this._apply_doAutoLabel);
-	      this.on("zoomstart",function(){this._zoomstarttrig=1});
-	      this.on("zoomend",function(){this._zoomstarttrig=0});
-	      this._autoLabel = true;
-	    },
-
-	    //to check if zoomstart event is fired to prevent autolabeling BEFORE zoomend
-	    _zoomstarttrig:0,
-
-	    //id of timeout after which AutoLabeling should be done each time - used to stop timer in case of changed map state BEFORE autolabelling was performed
-	    _ctimerID:-1,
-
-	    /**
-	    disable autolabeling for this map
-	    @memberof MapAutoLabelSupport#
-	    */
-	    disableAutoLabel:function(){
-	      this.options.renderer.on("update",this._apply_doAutoLabel);
-	      this._autoLabel=false;
-	    },
-
-	    /*
-	    beacuse we using update event of renderer, here we switching to map context and handling two-time update event of SVG renderer
-	    */
-	    _apply_doAutoLabel:function(){
-	      if(this._map._ctimerID!=-1)clearTimeout(this._map._ctimerID);
-	      if(this._map._zoomstarttrig==0){
-	        var _this=this._map;
-	        ////
-	        this._map._ctimerID=setTimeout(function(){_this._doAutoLabel()},_this._al_options.labelsDelay);
-	      }
-	      this._map._clearNodes();
-	    },
-
-	    _dodebug:function(message){
-	      if(this._al_options.debug)console.log(message);
-	    },
-
-	    /**
-	    this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
-	    */
-	    _doAutoLabel:function() {
-	      if(!this._autoLabel)return; //nothing to do here
-	      if(this.getZoom()>this._al_options.zoomToStartLabel){
-	        dataReader._map=this;
-	        var pt  =dataReader.readDataToLabel() //array for storing paths and values
-	        var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:50});
-	        if(allsegs.length==0){
-	          this._clearNodes();
-	          return;
-	        }
-	        simulatedAnnealing.perform(allsegs,{},this._renderNodes,this);
-	      }else{
-	        this._clearNodes();
-	      }
-	    },
-
-	    /**
-	    for test purposes now, creates a polygon node useing poly Array of points
-	    @param {Array} poly
-	    @returns {SVGPolygon}
-	    @memberof MapAutoLabelSupport#
-	    */
-	    _createPolygonNode:function(poly){
-	      var node = L.SVG.create('polygon');
-	      var points='';
-	      for(var i=0;i<poly.length;i++){
-	        points+=poly[i][0]+','+poly[i][1]+' ';
-	      }
-	      node.setAttribute('points', points.trim());
-	      node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
-	      return node;
-	    },
-	    /**
-	    for test purposes
-	    */
-	    _prepareClippedToRender:function(allsegs){
-	      var nodes=[];
-	      for(var i in allsegs){
-	        for(var j in allsegs[i].segs){
-	          var seg = allsegs[i].segs[j].seg;
-	          var node = L.SVG.create('line');
-	          node.setAttribute('x1', seg[0].x);
-	          node.setAttribute('y1', seg[0].x);
-	          node.setAttribute('x2', seg[1].x);
-	          node.setAttribute('y2', seg[1].y);
-	          node.setAttribute('style','stroke-width:3; stroke: white;');
-	          nodes.push(node);
-	        }
-	      }
-	      return nodes;
-	    },
-
-	    /**
-	    clears label on the screen
-	    @memberof MapAutoLabelSupport#
-	    */
-	    _clearNodes:function() {
-	    var svg = this.options.renderer._container;  //to work with SVG
-	      for(var i=0;i<this._nodes.length;i++){//clear _nodes on screen
-	        svg.removeChild(this._nodes[i]);
-	      }
-	      this._nodes=[];
-	    },
-
-	    /**
-	    renders computed labelset on the screen via svg
-	    @memberof MapAutoLabelSupport#
-	    */
-	    _renderNodes:function(labelset){
-	      var svg =  this.options.renderer._container;  //to work with SVG
-	      this._clearNodes(); //clearscreen
-	      for(var m=0;m<labelset.length;m++){
-	        var node = labelset[m].t.content_node;
-	        var x = labelset[m].pos.x;
-	        var y = labelset[m].pos.y;
-	        node.setAttribute('x', x);
-	        node.setAttribute('y', y);
-	        var transform ='rotate('+ Math.floor(labelset[m].a)+','+Math.floor(x)+','+Math.floor(y)+')';
-	        transform = transform.replace(/ /g, '\u00A0');
-	        node.setAttribute('transform',transform);
-	        svg.appendChild(node);
-	        this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
-	        if(this._al_options.showBBoxes){
-	          //here for testing purposes
-	          var polynode = this._createPolygonNode(labelset[m].poly);
-	          svg.appendChild(polynode);
-	          this._nodes.push(polynode); //add this polygon to _nodes array, so we can erase it from the screen later
-	        }
-	      }
-	    }
-	  }
 
 	  L.LayerGroup.include(AutoLabelingSupport);
-	  L.Map.include(MapAutoLabelSupport);
+	  L.Map.include({autoLabeler});
+	  L.Map.addInitHook(function(){
+	    this.autoLabeler._map=this;
+	  })
+
 	})();
 
 
@@ -300,10 +118,189 @@
 /* 1 */
 /***/ function(module, exports, __webpack_require__) {
 
+	var DOMEssentials = __webpack_require__(2);
+	var geomEssentials = __webpack_require__(3);
+	var simulatedAnnealing = __webpack_require__(4);
+	var dataReader = __webpack_require__(5);
+
+	var autoLabeler = {
+	  //_map,
+	  _nodes:[], //an array for storing SVG node to draw while autolabelling
+	  _layers2label:[], //an array to know which layergroups are to label
+	  options:{}, //autolabel options
+	  _autoLabel:false, //to determine if autolabelling is set for this map
+
+	  hasLayer:function(layer){
+	    return this._layers2label.indexOf(layer)!=-1;
+	  },
+
+	  addLayer:function(layer){
+	    if(!this.hasLayer(layer))this._layers2label.push(layer);
+	  },
+
+	  remLayer:function(layer){
+	    var ind=this._layers2label.indexOf(layer);
+	    if(ind>=0){
+	      this._layers2label.splice(ind,1);
+	    }
+	    return ind>=0;
+	  },
+
+	  /**
+	  set global options for auto-labelling
+	  */
+	  setAutoLabelOptions: function (opts) {
+	    this.options = opts || {};
+	    this.options.showBBoxes = opts.showBBoxes ||false; //display bounding boxes around texts
+	    this.options.debug = opts.debug || true; //show debug info in hte cons
+	    this.options.labelsDelay = opts.labelsDelay || 1000; //a time after update event of renderer when labelling should start, if zero - errors while zooming
+	    this.options.checkLabelsInside = opts.checkLabelsInside || true; //re-clip all segments to entirely fit map window without padding, disabling increases performance, but some labels maybe invisible due to padding of renderer
+	    this.options.zoomToStartLabel = opts.zoomToStartLabel || 13; //if map zoom lev is below this, do not show labels
+	    this.options.minimizeTotalOverlappingArea = opts.minimizeTotalOverlappingArea || false; //if true, minimize not the count of overlapping labels, but instead their total overlapping area
+	    this.options.deleteIfNoSolution = opts.deleteIfNoSolution || false; //TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
+	    this.options.doNotShowIfSegIsTooSmall = opts.doNotShowIfSegIsTooSmall || false; //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
+	  },
+
+	  /**
+	  toggles autolabeling
+	  */
+	  toggleAutoLabelling:function(){ //this not tested yet
+	    if(this._autoLabel)this.disableAutoLabel();else this.enableAutoLabel();
+	  },
+
+	  /**
+	  enable autolabeling
+	  */
+	  enableAutoLabel:function(){
+	    if(!this._map){
+	      this._dodebug('no map attached');
+	      return;
+	    }
+	    if(!this._map.options.renderer){
+	      this._dodebug('renderer is invalid');
+	      return;
+	    }
+	    this.setAutoLabelOptions(this.options);
+	    this._map.options.renderer.on("update",this._apply_doAutoLabel);
+	    this._map.on("zoomstart",function(){this._zoomstarttrig=1});
+	    this._map.on("zoomend",function(){this._zoomstarttrig=0});
+	    this._autoLabel = true;
+	  },
+
+	  //to check if zoomstart event is fired to prevent autolabeling BEFORE zoomend
+	  _zoomstarttrig:0,
+
+	  //id of timeout after which AutoLabeling should be done each time - used to stop timer in case of changed map state BEFORE autolabelling was performed
+	  _ctimerID:-1,
+
+	  /**
+	  disable autolabeling for this map
+	  */
+	  disableAutoLabel:function(){
+	    this._map.options.renderer.off("update",this._apply_doAutoLabel);
+	    this._autoLabel=false;
+	  },
+
+	  /*
+	  beacuse we using update event of renderer, here we switching to map context and handling two-time update event of SVG renderer
+	  */
+	  _apply_doAutoLabel:function(){
+	    if(this._map.autoLabeler._ctimerID!=-1)clearTimeout(this._map.autoLabeler._ctimerID);
+	    if(this._map.autoLabeler._zoomstarttrig==0){
+	      var al = this._map.autoLabeler;
+	      var lDelay = this._map.autoLabeler.options.labelsDelay;
+	      this._map.autoLabeler._ctimerID=setTimeout(function(){al._doAutoLabel()},lDelay);
+	    }
+	    this._map.autoLabeler._clearNodes();
+	  },
+
+	  _dodebug:function(message){
+	    if(this.options.debug)console.log(message);
+	  },
+
+
+	  /**
+	  this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
+	  */
+	  _doAutoLabel:function() {
+	    if(!this._autoLabel)return; //nothing to do here
+	    if(this._map.getZoom()>this.options.zoomToStartLabel){
+	      dataReader._map=this._map;
+	      var pt  =dataReader.readDataToLabel() //array for storing paths and values
+	      var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:50});
+	      if(allsegs.length==0){
+	        this._clearNodes();
+	        return;
+	      }
+	      simulatedAnnealing.perform(allsegs,{},this._renderNodes,this);
+	    }else{
+	      this._clearNodes();
+	    }
+	  },
+
+	  /**
+	  for test purposes now, creates a polygon node useing poly Array of points
+	  */
+	  _createPolygonNode:function(poly){
+	    var node = L.SVG.create('polygon');
+	    var points='';
+	    for(var i=0;i<poly.length;i++){
+	      points+=poly[i][0]+','+poly[i][1]+' ';
+	    }
+	    node.setAttribute('points', points.trim());
+	    node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
+	    return node;
+	  },
+
+	  /**
+	  clears label on the screen
+	  */
+	  _clearNodes:function() {
+	  var svg = this._map.options.renderer._container;  //to work with SVG
+	    for(var i=0;i<this._nodes.length;i++){//clear _nodes on screen
+	      svg.removeChild(this._nodes[i]);
+	    }
+	    this._nodes=[];
+	  },
+
+	  /**
+	  renders computed labelset on the screen via svg
+	  */
+	  _renderNodes:function(labelset){
+	    var svg =  this._map.options.renderer._container;  //to work with SVG
+	    this._clearNodes(); //clearscreen
+	    for(var m in labelset){
+	      var node = labelset[m].t.content_node;
+	      var x = labelset[m].pos.x;
+	      var y = labelset[m].pos.y;
+	      node.setAttribute('x', x);
+	      node.setAttribute('y', y);
+	      var transform ='rotate('+ Math.floor(labelset[m].a)+','+Math.floor(x)+','+Math.floor(y)+')';
+	      transform = transform.replace(/ /g, '\u00A0');
+	      node.setAttribute('transform',transform);
+	      svg.appendChild(node);
+	      this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
+	      if(this.options.showBBoxes){
+	        //here for testing purposes
+	        var polynode = this._createPolygonNode(labelset[m].poly);
+	        svg.appendChild(polynode);
+	        this._nodes.push(polynode); //add this polygon to _nodes array, so we can erase it from the screen later
+	      }
+	    }
+	  }
+	}
+
+	module.exports = autoLabeler;
+
+
+/***/ },
+/* 2 */
+/***/ function(module, exports, __webpack_require__) {
+
 	//a class to compute pixel dimensions of texts
 	/** @namespace DOMEssentials*/
 	'use strict';
-	var geomEssentials = __webpack_require__(2);
+	var geomEssentials = __webpack_require__(3);
 
 	var DOMEssentials = {
 	  /**
@@ -351,7 +348,7 @@
 
 
 /***/ },
-/* 2 */
+/* 3 */
 /***/ function(module, exports) {
 
 	//a class to perfrom geometric stuff
@@ -554,12 +551,12 @@
 
 
 /***/ },
-/* 3 */
+/* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 
-	var geomEssentials = __webpack_require__(2);
+	var geomEssentials = __webpack_require__(3);
 
 	//TODO [simulatedAnnealing] maybe do as factory function - to perform independently for different map instances
 	var simulatedAnnealing = {
@@ -768,10 +765,6 @@
 	    this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
 	  },
 
-	  stopCalc:function(timerID,callback){
-
-	  },
-
 	  /**
 	  find optimal label placement based on simulated annealing approach, relies on paper https://www.eecs.harvard.edu/shieber/Biblio/Papers/jc.label.pdf
 	  @param {Array} allsegs: an arr with labels and their available line segments to place
@@ -792,7 +785,7 @@
 	          var doexit=curvalues[curvalues.length-1] === 0;//if no overlaping at init state, do nothing and return curretn state
 	          var iterations=0;
 	          var This=this;
-	          var oldCenter = context.getCenter(), oldZoom = context.getZoom();
+	          var oldCenter = context._map.getCenter(), oldZoom = context._map.getZoom();
 	          var doReturn = function(dorender){
 	            This.dodebug('-----');
 	            if(dorender){
@@ -868,14 +861,14 @@
 
 
 /***/ },
-/* 4 */
+/* 5 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
 	Module to extract sufficient info to label data on the map
 	*/
-	var DOMEssentials = __webpack_require__(1);
-	var geomEssentials = __webpack_require__(2);
+	var DOMEssentials = __webpack_require__(2);
+	var geomEssentials = __webpack_require__(3);
 
 	var dataReader = {
 	  /**
@@ -887,9 +880,8 @@
 	    var pt  =[];
 	    if(this._map){
 	      var bounds_to_contain_labels = geomEssentials.getBoundsWithoutPadding(this._map,0.9); // if needed
-	      for(var i=0;i<this._map._layers2label.length;i++){
-	        var lg=this._map._layers2label[i];
-	        var ll2 = this._map._layers2label;
+	      for(var i in this._map.autoLabeler._layers2label){
+	        var lg=this._map.autoLabeler._layers2label[i];
 	        var map_to_add = this._map;
 	        lg.eachLayer(function(layer){
 	          if(layer.feature)
@@ -897,12 +889,12 @@
 	            var node =DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle);
 	            var poly = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
 	            var layer_type = 0;
-	            var centerOrParts=[];
+	            var centerOrParts=[]; //array for storing visible segments or centres (for points)
 	            if(layer instanceof L.Polyline || layer instanceof L.Polygon){ //polyline case
 	                if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
 	                  layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
 	                  //TEMPORARY TOFIX
-	                  if(layer_type==1 && map_to_add._al_options.checkLabelsInside){
+	                  if(layer_type==1 && map_to_add.autoLabeler.options.checkLabelsInside){
 	                      centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
 	                  }
 	                  else centerOrParts=layer._parts; //for polygon

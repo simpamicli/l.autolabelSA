@@ -14,9 +14,8 @@ var dataReader = {
     var pt  =[];
     if(this._map){
       var bounds_to_contain_labels = geomEssentials.getBoundsWithoutPadding(this._map,0.9); // if needed
-      for(var i=0;i<this._map._layers2label.length;i++){
-        var lg=this._map._layers2label[i];
-        var ll2 = this._map._layers2label;
+      for(var i in this._map.autoLabeler._layers2label){
+        var lg=this._map.autoLabeler._layers2label[i];
         var map_to_add = this._map;
         lg.eachLayer(function(layer){
           if(layer.feature)
@@ -24,12 +23,12 @@ var dataReader = {
             var node =DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle);
             var poly = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
             var layer_type = 0;
-            var centerOrParts=[];
+            var centerOrParts=[]; //array for storing visible segments or centres (for points)
             if(layer instanceof L.Polyline || layer instanceof L.Polygon){ //polyline case
                 if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
                   layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
                   //TEMPORARY TOFIX
-                  if(layer_type==1 && map_to_add._al_options.checkLabelsInside){
+                  if(layer_type==1 && map_to_add.autoLabeler.options.checkLabelsInside){
                       centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
                   }
                   else centerOrParts=layer._parts; //for polygon

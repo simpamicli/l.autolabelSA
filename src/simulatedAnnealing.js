@@ -209,10 +209,6 @@ var simulatedAnnealing = {
     this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
   },
 
-  stopCalc:function(timerID,callback){
-
-  },
-
   /**
   find optimal label placement based on simulated annealing approach, relies on paper https://www.eecs.harvard.edu/shieber/Biblio/Papers/jc.label.pdf
   @param {Array} allsegs: an arr with labels and their available line segments to place
@@ -233,7 +229,7 @@ var simulatedAnnealing = {
           var doexit=curvalues[curvalues.length-1] === 0;//if no overlaping at init state, do nothing and return curretn state
           var iterations=0;
           var This=this;
-          var oldCenter = context.getCenter(), oldZoom = context.getZoom();
+          var oldCenter = context._map.getCenter(), oldZoom = context._map.getZoom();
           var doReturn = function(dorender){
             This.dodebug('-----');
             if(dorender){
