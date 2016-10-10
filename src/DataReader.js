@@ -28,10 +28,11 @@ var dataReader = {
                 if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
                   layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
                   //TEMPORARY TOFIX
-                  if(layer_type==1 && map_to_add.autoLabeler.options.checkLabelsInside){
-                      centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
-                  }
-                  else centerOrParts=layer._parts; //for polygon
+                  // if(layer_type==1 && map_to_add.autoLabeler.options.checkLabelsInside){
+                  //     centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
+                  // }
+                  // else
+                  centerOrParts=layer._parts; //for polygon
                 }
               }
             else if (layer instanceof L.CircleMarker || L.Marker){
@@ -85,7 +86,8 @@ var dataReader = {
             var ab = [a,b];
             var ablen = a.distanceTo(b); //compute segment length only once
             var what_to_push ={seg:ab,seglen:ablen};
-            if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+            // if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+            cursetItem.push(what_to_push);
           }
         }
       }

@@ -5,11 +5,9 @@
 
   var __onRemove = L.LayerGroup.prototype.onRemove;
   //to include in LabelGroup
-  /** @namespace AutoLabelingSupport*/
   var AutoLabelingSupport = {
       /**
       handle removing layer from the map
-      @memberof AutoLabelingSupport#
       */
       onRemove: function (map) {
       this.disableAutoLabel();
@@ -21,7 +19,6 @@
      enable autolabeling for this layerGroup, additionally set the current_map variable if it is undefined and hooks label painting on moveend /zoomend events
      it adds this layerGroup to the _layers2label array, so _doAutoLabel function will know about this layerGroup
      @param {Object} options: labelStyle - css string to describe labels look, for now one for all layers in group, propertyName - a property from layer.feature.properties which we label on map
-     @memberof AutoLabelingSupport#
     */
     enableAutoLabel:function(options){
       if(!this._map)return;
@@ -35,7 +32,6 @@
 
     /**
     Obtain autlabelling state for this layerGroup
-    @memberof AutoLabelingSupport#
     @returns {Boolean}
     */
     autoLabelEnabled:function(){
@@ -45,7 +41,6 @@
 
     /**
     disable autolabelling
-    @memberof AutoLabelingSupport#
     */
     disableAutoLabel:function(){
       if(!this._map.autoLabeler){

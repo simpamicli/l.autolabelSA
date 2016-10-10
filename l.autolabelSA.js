@@ -51,11 +51,9 @@
 
 	  var __onRemove = L.LayerGroup.prototype.onRemove;
 	  //to include in LabelGroup
-	  /** @namespace AutoLabelingSupport*/
 	  var AutoLabelingSupport = {
 	      /**
 	      handle removing layer from the map
-	      @memberof AutoLabelingSupport#
 	      */
 	      onRemove: function (map) {
 	      this.disableAutoLabel();
@@ -67,7 +65,6 @@
 	     enable autolabeling for this layerGroup, additionally set the current_map variable if it is undefined and hooks label painting on moveend /zoomend events
 	     it adds this layerGroup to the _layers2label array, so _doAutoLabel function will know about this layerGroup
 	     @param {Object} options: labelStyle - css string to describe labels look, for now one for all layers in group, propertyName - a property from layer.feature.properties which we label on map
-	     @memberof AutoLabelingSupport#
 	    */
 	    enableAutoLabel:function(options){
 	      if(!this._map)return;
@@ -81,7 +78,6 @@
 
 	    /**
 	    Obtain autlabelling state for this layerGroup
-	    @memberof AutoLabelingSupport#
 	    @returns {Boolean}
 	    */
 	    autoLabelEnabled:function(){
@@ -91,7 +87,6 @@
 
 	    /**
 	    disable autolabelling
-	    @memberof AutoLabelingSupport#
 	    */
 	    disableAutoLabel:function(){
 	      if(!this._map.autoLabeler){
@@ -262,6 +257,7 @@
 	        svg.removeChild(this._nodes[i]);
 	      }
 	      this._nodes=[];
+	      this._dodebug("Cleared nodes");
 	    },
 
 	    /**
@@ -561,7 +557,6 @@
 
 	var geomEssentials = __webpack_require__(3);
 
-	//TODO [simulatedAnnealing] maybe do as factory function - to perform independently for different map instances
 	var simulatedAnnealing = {
 
 	  obtainCandidateForPolyLine:function(seg_w_len,labelLength){
@@ -603,7 +598,6 @@
 	  TODO [computeLabelCandidate] add polygon support: if two or more independent areas of one poly on screen, label both
 	  @param {Number} i: an index in allsegs array to obtain label for candidate and segments array wuth segments to choose
 	  @returns {Object} : an object with {t,poly,pos,a,allsegs_index} elements, such as t - text to label,poly - bounding rect of label, pos - pos to place label, a - angle to rotate label,allsegs_index - index in segments array
-	  @memberof MapAutoLabelSupport#
 	  */
 	  computeLabelCandidate:function(i,allsegs) {
 	    var t = allsegs[i].t; //label part
@@ -624,9 +618,7 @@
 
 	    if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
 	    poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
-	    //TODO [computeLabelCandidate] check, if any of poly points outside the screen, if so, slide it along the segment to achieve no point such
-	    var res={t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};
-	    return res;
+	    return {t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};;
 	  },
 
 	  /**
@@ -634,7 +626,6 @@
 	  @param {Number} index:
 	  @param {Array} curset:
 	  @returns {Object}:
-	  @memberof MapAutoLabelSupport#
 	  */
 	  copyCandidate:function(index,curset) {
 	    var cancopy = curset[index];
@@ -646,11 +637,10 @@
 	  computes the random set of positions for text placement with angles and text values
 	  @param {Array} allsegs: an array with {t,segs} elements, according to t -text of the polyline, segs - its accepted segments to label on. Result array is generated from items of this array
 	  @returns {Array} : an array with elements such as return values of computeLabelCandidate function
-	  @memberof MapAutoLabelSupport#
 	  */
 	  getInitialRandomState:function(allsegs){
 	    var res=[];
-	    for(var i=0;i<allsegs.length;i++){
+	    for(var i in allsegs){
 	      var candidate = this.computeLabelCandidate(i,allsegs);
 	      res.push(candidate);
 	    }
@@ -662,7 +652,6 @@
 	  @param {Number} index : index of label in allsegs to select new random position from availavle choices.
 	  @param {Array} curset: currently selected label postions
 	  @param {Array} allsegs: all available postions
-	  @memberof MapAutoLabelSupport#
 	  */
 	  swapCandidateInLabelSet:function(idx,curset,allsegs){
 	    var label_index = curset[idx].allsegs_index;
@@ -675,7 +664,6 @@
 	  @param {} poly1:a first polygon to check overlap with second
 	  @param {} poly2:a second polygon to check overlap with first
 	  @returns {float}: an area of overlapping, zero if no overlapping
-	  @memberof MapAutoLabelSupport#
 	  */
 	  checkOverLappingArea:function(poly1,poly2,calculateAreaNotOnlyFactOfOverlapping) {
 	    var clipped = geomEssentials.clipPoly(poly1,poly2);
@@ -689,11 +677,10 @@
 	  /**
 	  may be a custom function, must add result as last value of input array
 	  @param {Array} overlapping_values: input array of areas
-	  @memberof MapAutoLabelSupport#
 	  */
 	  assignCostFunctionValuesToLastEl:function(overlapping_values){
 	    var res=0;
-	    for(var i=0;i<overlapping_values.length;i++)if(i<overlapping_values.length){
+	    for(var i in overlapping_values){
 	      res+=overlapping_values[i];
 	    }
 	    overlapping_values.push(res);
@@ -706,10 +693,9 @@
 	  @memberof MapAutoLabelSupport#
 	  */
 	  evaluateCurSet:function(curset){
-	    var res=0;
 	    var overlap_values=[];
-	    for(var i=0;i<curset.length;i++){
-	      for(var j=0;j<curset.length;j++){
+	    for(var i in curset){
+	      for(var j in curset){
 	        if(i>j){ //to exclude variants like compare (1,3) and then (3,1)
 	        var curlabel_value=this.checkOverLappingArea(curset[i].poly,curset[j].poly,this.options.minimizeTotalOverlappingArea);
 	        //for each pair(i,j) push it's value into overlap_values array
@@ -734,8 +720,8 @@
 	  */
 	  evaluateAfterOneChanged:function(curvalues,curset,changedLabelIndex) {
 	    var counter=0; //index to iterate through curvalue array
-	    for(var i=0;i<curset.length;i++){
-	      for(var j=0;j<curset.length;j++){if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
+	    for(var i in curset){
+	      for(var j in curset){if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
 	        if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
 	          var area=this.checkOverLappingArea(curset[i].poly,curset[j].poly,this.options.minimizeTotalOverlappingArea); //and recalculate areas
 	          curvalues[counter]=area;
@@ -759,11 +745,13 @@
 	    this.options.decrease_value = this.options.decrease_value || 0.9; //decrease by ten percent each decrease step
 	    this.options.tmin = this.options.tmin || 0.0;
 	    this.options.constant_temp_repositionings = this.options.constant_temp_repositionings || 10;
-	    this.options.max_improvments_count = this.options.max_improvments_count || 10;
+	    this.options.max_improvments_count = this.options.max_improvments_count || 50;
 	    this.options.max_noimprove_count = this.options.max_noimprove_count || 50;
-	    this.options.maxsteps = this.options.maxsteps || 100;
+	    this.options.maxsteps = this.options.maxsteps || 200;
 	    this.options.maxtotaliterations = this.options.maxtotaliterations || 100000;
 	    this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
+	    this.options.checkDistanceFromCenter=this.options.checkDistanceFromCenter || false;
+	    this.options.mapCenter=this.options.mapCenter || [0,0];
 	    this.options.debug=this.options.debug || true;
 	    this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
 	  },
@@ -774,10 +762,10 @@
 	  @param {Object} options: TODO [simulatedAnnealing] add options description
 	  @param {Object} callback: a function to gather results and use them to render
 	  @param {Object} context: a parent conext of the function  above (arguments.callee - but deprecated)
-	  @memberof MapAutoLabelSupport#
 	  */
 	  perform:function(allsegs,options,callback,context) {
-	        if(allsegs.length<1){callback([])}else{
+	        if(allsegs.length<1){callback([])} //do nothing if no segments
+	        else{
 	          var t0 = performance.now();
 	          this.processOptions(options);
 	          //init
@@ -789,6 +777,7 @@
 	          var iterations=0;
 	          var This=this;
 	          var oldCenter = context._map.getCenter(), oldZoom = context._map.getZoom();
+
 	          var doReturn = function(dorender){
 	            This.dodebug('-----');
 	            if(dorender){
@@ -809,12 +798,11 @@
 	            //  while(t>options.tmin && stepcount<options.maxsteps && !doexit
 	            if(t<=options.tmin || stepcount>=options.maxsteps)return;
 	            stepcount++;
-	            var improvements_count=0;
-	            var no_improve_count=0;
+	            var improvements_count=0, no_improve_count=0;
 	            for(var i=0;i<options.constant_temp_repositionings*curset.length;i++){
-	              var oldvalues = curvalues.slice(0); //clone curvalues in order to return to ld ones
-	              var random_label_ind = Math.floor((Math.random() * curset.length) ); //randomly choose one label
-	              var old_pos = This.copyCandidate(random_label_ind,curset);
+	              var oldvalues = curvalues.slice(0), //clone curvalues in order to return to ld ones
+	                  random_label_ind = Math.floor((Math.random() * curset.length) ), //randomly choose one label
+	                  old_pos = This.copyCandidate(random_label_ind,curset);
 	              This.swapCandidateInLabelSet(random_label_ind,curset,allsegs); //change label position
 	              This.evaluateAfterOneChanged(curvalues,curset,random_label_ind); //calc new sum
 	              iterations++;
@@ -851,7 +839,7 @@
 	            }
 	            //decrease t
 	            t*=options.decrease_value;
-	            if(iterations>5000){
+	            if(iterations>5000){ //not to hang too long
 	              doReturn(dorender);
 	              return;
 	            }
@@ -897,10 +885,11 @@
 	                if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
 	                  layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
 	                  //TEMPORARY TOFIX
-	                  if(layer_type==1 && map_to_add.autoLabeler.options.checkLabelsInside){
-	                      centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
-	                  }
-	                  else centerOrParts=layer._parts; //for polygon
+	                  // if(layer_type==1 && map_to_add.autoLabeler.options.checkLabelsInside){
+	                  //     centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
+	                  // }
+	                  // else
+	                  centerOrParts=layer._parts; //for polygon
 	                }
 	              }
 	            else if (layer instanceof L.CircleMarker || L.Marker){
@@ -954,7 +943,8 @@
 	            var ab = [a,b];
 	            var ablen = a.distanceTo(b); //compute segment length only once
 	            var what_to_push ={seg:ab,seglen:ablen};
-	            if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+	            // if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+	            cursetItem.push(what_to_push);
 	          }
 	        }
 	      }

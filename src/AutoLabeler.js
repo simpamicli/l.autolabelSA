@@ -143,6 +143,7 @@ L.autoLabeler = function(map)
         svg.removeChild(this._nodes[i]);
       }
       this._nodes=[];
+      this._dodebug("Cleared nodes");
     },
 
     /**
