@@ -51,9 +51,11 @@
 
 	  var __onRemove = L.LayerGroup.prototype.onRemove;
 	  //to include in LabelGroup
+	  /** @namespace AutoLabelingSupport*/
 	  var AutoLabelingSupport = {
 	      /**
 	      handle removing layer from the map
+	      @memberof AutoLabelingSupport#
 	      */
 	      onRemove: function (map) {
 	      this.disableAutoLabel();
@@ -65,6 +67,7 @@
 	     enable autolabeling for this layerGroup, additionally set the current_map variable if it is undefined and hooks label painting on moveend /zoomend events
 	     it adds this layerGroup to the _layers2label array, so _doAutoLabel function will know about this layerGroup
 	     @param {Object} options: labelStyle - css string to describe labels look, for now one for all layers in group, propertyName - a property from layer.feature.properties which we label on map
+	     @memberof AutoLabelingSupport#
 	    */
 	    enableAutoLabel:function(options){
 	      if(!this._map)return;
@@ -78,6 +81,7 @@
 
 	    /**
 	    Obtain autlabelling state for this layerGroup
+	    @memberof AutoLabelingSupport#
 	    @returns {Boolean}
 	    */
 	    autoLabelEnabled:function(){
@@ -87,6 +91,7 @@
 
 	    /**
 	    disable autolabelling
+	    @memberof AutoLabelingSupport#
 	    */
 	    disableAutoLabel:function(){
 	      if(!this._map.autoLabeler){
@@ -591,6 +596,21 @@
 	  obtainCandidateForPoly(ring){
 	    //TODO[obtainCandidateForPoly]
 	  },
+
+	  /**
+	  based on https://blog.dotzero.ru/weighted-random-simple/
+	  get a random element from array, assuming it is sorted ascending order and weights are indexes of elements in the array
+	  */
+	  getWeightedRandomIndex( segs )
+	  {
+	    var total = segs.length*(segs.length-1)/2; //weight is number in array
+	    var n = 0;
+	    var num = Math.floor(Math.random()*total);
+	    for(var i =0;i< segs.length; i++){
+	      n+=i;
+	      if(n>=num)return i;
+	    }
+	  },
 	  /**
 	  computes label candidate object to place on map
 	  TODO [computeLabelCandidate] place label on both sides of segment
@@ -602,7 +622,12 @@
 	  computeLabelCandidate:function(i,allsegs) {
 	    var t = allsegs[i].t; //label part
 	    var segs = allsegs[i].segs;
-	    var idx = Math.floor((Math.random() * segs.length) ); //choose the segment index from parts visible on screeen
+
+	    //choose the segment index from parts visible on screeen
+	    //here we should prioritize segments with bigger length
+	    //assuming segs array is sorted ascending using segment length
+	    //var idx =this.getWeightedRandomIndex(segs);
+	    var idx = Math.floor(Math.random()*segs.length);
 	    var poly,point_and_angle;
 	    poly = allsegs[i].t.poly;
 
@@ -839,7 +864,7 @@
 	            }
 	            //decrease t
 	            t*=options.decrease_value;
-	            if(iterations>5000){ //not to hang too long
+	            if(iterations>10000){ //not to hang too long
 	              doReturn(dorender);
 	              return;
 	            }
@@ -943,16 +968,23 @@
 	            var ab = [a,b];
 	            var ablen = a.distanceTo(b); //compute segment length only once
 	            var what_to_push ={seg:ab,seglen:ablen};
-	            // if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
-	            cursetItem.push(what_to_push);
+	            if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+	            // cursetItem.push(what_to_push);
 	          }
 	        }
 	      }
 
 	      var to_all_segs = {t:item.t,layertype:item.layertype};
 	      if(cursetItem.length>0)to_all_segs.segs=cursetItem;else to_all_segs.segs=too_small_segments;
+
+	      to_all_segs.segs.sort(
+	        function(s1,s2){ //by segments length, first are small
+	          return s1.seglen-s2.seglen;
+	        });
+
 	      allsegs.push(to_all_segs);
 	    }
+
 	    return allsegs;
 	  },
 	}

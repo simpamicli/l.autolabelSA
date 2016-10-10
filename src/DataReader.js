@@ -86,16 +86,23 @@ var dataReader = {
             var ab = [a,b];
             var ablen = a.distanceTo(b); //compute segment length only once
             var what_to_push ={seg:ab,seglen:ablen};
-            // if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
-            cursetItem.push(what_to_push);
+            if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+            // cursetItem.push(what_to_push);
           }
         }
       }
 
       var to_all_segs = {t:item.t,layertype:item.layertype};
       if(cursetItem.length>0)to_all_segs.segs=cursetItem;else to_all_segs.segs=too_small_segments;
+
+      to_all_segs.segs.sort(
+        function(s1,s2){ //by segments length, first are small
+          return s1.seglen-s2.seglen;
+        });
+
       allsegs.push(to_all_segs);
     }
+
     return allsegs;
   },
 }

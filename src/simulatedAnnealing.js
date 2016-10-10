@@ -36,6 +36,21 @@ var simulatedAnnealing = {
   obtainCandidateForPoly(ring){
     //TODO[obtainCandidateForPoly]
   },
+
+  /**
+  based on https://blog.dotzero.ru/weighted-random-simple/
+  get a random element from array, assuming it is sorted ascending order and weights are indexes of elements in the array
+  */
+  getWeightedRandomIndex( segs )
+  {
+    var total = segs.length*(segs.length-1)/2; //weight is number in array
+    var n = 0;
+    var num = Math.floor(Math.random()*total);
+    for(var i =0;i< segs.length; i++){
+      n+=i;
+      if(n>=num)return i;
+    }
+  },
   /**
   computes label candidate object to place on map
   TODO [computeLabelCandidate] place label on both sides of segment
@@ -47,7 +62,12 @@ var simulatedAnnealing = {
   computeLabelCandidate:function(i,allsegs) {
     var t = allsegs[i].t; //label part
     var segs = allsegs[i].segs;
-    var idx = Math.floor((Math.random() * segs.length) ); //choose the segment index from parts visible on screeen
+
+    //choose the segment index from parts visible on screeen
+    //here we should prioritize segments with bigger length
+    //assuming segs array is sorted ascending using segment length
+    //var idx =this.getWeightedRandomIndex(segs);
+    var idx = Math.floor(Math.random()*segs.length);
     var poly,point_and_angle;
     poly = allsegs[i].t.poly;
 
@@ -284,7 +304,7 @@ var simulatedAnnealing = {
             }
             //decrease t
             t*=options.decrease_value;
-            if(iterations>5000){ //not to hang too long
+            if(iterations>10000){ //not to hang too long
               doReturn(dorender);
               return;
             }
