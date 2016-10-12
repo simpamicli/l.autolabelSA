@@ -19,10 +19,9 @@ var simulatedAnnealing = {
     if(labelLength>=seglen){
       p2add = segStartPt;
     }else{
-      var ratio = Math.random();
-      var allowed_max_ratio = (seglen - labelLength)/seglen;//is less than 1
-      //so
-      ratio*=allowed_max_ratio;
+      var discrete_seg_len = ((seglen-labelLength) / this.options.lineDiscreteStepPx);
+      var random_pos =(Math.floor(Math.random()*discrete_seg_len)*this.options.lineDiscreteStepPx);//index of selected part of segemnt to place label
+      var ratio = random_pos / seglen;
       p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
     }
     var angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
@@ -51,6 +50,17 @@ var simulatedAnnealing = {
       if(n>=num)return i;
     }
   },
+
+  getIndexBasedOnTotalLengthRandom:function(item){
+    var random_pos = Math.random()*item.total_length; //get a position random for all segments of this polyline visible on the screen
+    //obtain and index of segment, to which belongs this position, it is assumed tha segments are sorted by length
+    var clen=0;
+    for(var i=0;i<item.segs.length;i++){
+      clen+=item.segs[i].seglen;
+      if(clen>random_pos)break;
+    }
+    return i;
+  },
   /**
   computes label candidate object to place on map
   TODO [computeLabelCandidate] place label on both sides of segment
@@ -66,8 +76,8 @@ var simulatedAnnealing = {
     //choose the segment index from parts visible on screeen
     //here we should prioritize segments with bigger length
     //assuming segs array is sorted ascending using segment length
-    //var idx =this.getWeightedRandomIndex(segs);
-    var idx = Math.floor(Math.random()*segs.length);
+    var idx =this.getIndexBasedOnTotalLengthRandom(allsegs[i]);
+    //var idx = Math.floor(Math.random()*segs.length);
     var poly,point_and_angle;
     poly = allsegs[i].t.poly;
 
@@ -207,18 +217,19 @@ var simulatedAnnealing = {
   processOptions:function(options){
     this.options=options || {};
     this.options.t0 = this.options.t0 || 2.5;
-    this.options.decrease_value = this.options.decrease_value || 0.9; //decrease by ten percent each decrease step
+    this.options.decrease_value = this.options.decrease_value || 0.8; //decrease by ten percent each decrease step
     this.options.tmin = this.options.tmin || 0.0;
-    this.options.constant_temp_repositionings = this.options.constant_temp_repositionings || 10;
+    this.options.constant_temp_repositionings = this.options.constant_temp_repositionings || 20;
     this.options.max_improvments_count = this.options.max_improvments_count || 50;
     this.options.max_noimprove_count = this.options.max_noimprove_count || 50;
-    this.options.maxsteps = this.options.maxsteps || 200;
-    this.options.maxtotaliterations = this.options.maxtotaliterations || 100000;
+    this.options.maxsteps = this.options.maxsteps || 300;
+    this.options.maxtotaliterations = this.options.maxtotaliterations || 15000;
     this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
     this.options.checkDistanceFromCenter=this.options.checkDistanceFromCenter || false;
     this.options.mapCenter=this.options.mapCenter || [0,0];
     this.options.debug=this.options.debug || true;
-    this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
+    this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true; //TODO [processOptions]
+    this.options.lineDiscreteStepPx = this.options.lineDiscreteStepPx || 10; //pixels
   },
 
   /**
@@ -304,7 +315,7 @@ var simulatedAnnealing = {
             }
             //decrease t
             t*=options.decrease_value;
-            if(iterations>10000){ //not to hang too long
+            if(iterations>this.options.maxtotaliterations){ //not to hang too long
               doReturn(dorender);
               return;
             }

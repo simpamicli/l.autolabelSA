@@ -100,6 +100,9 @@ var dataReader = {
           return s1.seglen-s2.seglen;
         });
 
+      var total_length=0;
+      for(var m=0;m<to_all_segs.segs.length;m++)total_length+=to_all_segs.segs[m].seglen;
+      to_all_segs.total_length=total_length;
       allsegs.push(to_all_segs);
     }
 

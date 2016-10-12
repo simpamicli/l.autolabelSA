@@ -6,7 +6,7 @@ var googleHybrid = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z=
     subdomains:['mt0','mt1','mt2','mt3']
 });
 
-var map = new L.Map('map',{renderer:L.svg()}).addLayer(osm).setView(new L.LatLng(60.07, 30.32), 14);
+var map = new L.Map('map',{renderer:L.svg()}).addLayer(osm).setView(new L.LatLng(60.078, 30.47), 14);
 map.addControl(new L.Control.Layers( {'Карта':osm, 'Спутник':googleHybrid}, {}));
 map.autoLabeler.setAutoLabelOptions({labelsDelay:500});
 map.autoLabeler.toggleAutoLabelling();
