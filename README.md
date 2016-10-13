@@ -6,7 +6,7 @@ Auto-label plugin for leaflet
 
 Include *l.autolabelSA* in your proj. It is assumed that *leaflet* is included before.
 
-Set then *map.enableAutoLabel(true,options)* for your map(s). Or use *map.toggleAutoLabelling()* with default options
+Add then *map.autoLabeler.toggleAutolabelling()* for your map(s). To set options, use map.autoLabeler.setAutoLabellingOptions(youroptions);
 
   options : TODO
 
@@ -24,4 +24,4 @@ Set *layergroup.enableAutoLabel(true,options)* for each layergroup you want to l
 ###Now runs ONLY with polylines
 Will soon be available for polys and markers
 
-tested with leaflet 1rc1
+tested with leaflet 1.01
