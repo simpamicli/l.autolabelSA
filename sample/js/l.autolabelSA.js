@@ -156,6 +156,7 @@
 	      this.options.minimizeTotalOverlappingArea = opts.minimizeTotalOverlappingArea || false; //if true, minimize not the count of overlapping labels, but instead their total overlapping area
 	      this.options.deleteIfNoSolution = opts.deleteIfNoSolution || false; //TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
 	      this.options.doNotShowIfSegIsTooSmall = opts.doNotShowIfSegIsTooSmall || false; //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
+	      this.options.annealingOptions = opts.annealingOptions || {};
 	    },
 
 	    /**
@@ -224,12 +225,12 @@
 	      if(this._map.getZoom()>this.options.zoomToStartLabel){
 	        dataReader._map=this._map;
 	        var pt  =dataReader.readDataToLabel(this._map) //array for storing paths and values
-	        var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:50});
+	        var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:80});
 	        if(allsegs.length==0){
 	          this._clearNodes();
 	          return;
 	        }
-	        simulatedAnnealing.perform(allsegs,{},this._renderNodes,this);
+	        simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
 	      }else{
 	        this._clearNodes();
 	      }
@@ -719,7 +720,7 @@
 	    this.options.tmin = this.options.tmin || 0.0;
 	    this.options.constant_temp_repositionings = this.options.constant_temp_repositionings || 10;
 	    this.options.max_improvments_count = this.options.max_improvments_count || 10;
-	    this.options.max_noimprove_count = this.options.max_noimprove_count || 50;
+	    this.options.max_noimprove_count = this.options.max_noimprove_count || 20;
 	    this.options.maxsteps = this.options.maxsteps || 100;
 	    this.options.maxtotaliterations = this.options.maxtotaliterations || 100000;
 	    this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
@@ -743,7 +744,7 @@
 	          //init
 	          var curset=this.getInitialRandomState(allsegs); //current label postions
 	          var curvalues = this.evaluateCurSet(curset); //current overlaping matrix
-	          var t=options.t0;
+	          var t=this.options.t0;
 	          var stepcount=0;
 	          var doexit=curvalues[curvalues.length-1] === 0;//if no overlaping at init state, do nothing and return curretn state
 	          var iterations=0;
@@ -768,13 +769,13 @@
 	             //let know map which timer we are using
 	            //while constant temperature, do some replacments:
 	            //  while(t>options.tmin && stepcount<options.maxsteps && !doexit
-	            if(t<=options.tmin || stepcount>=options.maxsteps){
+	            if(t<=this.options.tmin || stepcount>=this.options.maxsteps){
 	              doReturn(dorender);
 	              return;
 	            }
 	            stepcount++;
 	            var improvements_count=0, no_improve_count=0;
-	            for(var i=0;i<options.constant_temp_repositionings*curset.length;i++){
+	            for(var i=0;i<this.options.constant_temp_repositionings*curset.length;i++){
 	              var oldvalues = curvalues.slice(0); //clone curvalues in order to return to ld ones
 	              var oldset = curset.slice(0);
 	              curset=this.getInitialRandomState(allsegs); //current label postions
@@ -782,6 +783,10 @@
 	              iterations++;
 	              if(curvalues[curvalues.length-1] === 0){
 	                This.dodebug('strict solution');
+	                doReturn(dorender);
+	                return;
+	              }
+	              if(iterations>this.options.maxtotaliterations){ //not to hang too long
 	                doReturn(dorender);
 	                return;
 	              }
@@ -800,23 +805,19 @@
 	                 improvements_count++;
 	                 no_improve_count=0;
 	               }
-	              if(no_improve_count>=options.max_noimprove_count*curset.length){ //it is already optimal
+	              if(no_improve_count>=this.options.max_noimprove_count*curset.length){ //it is already optimal
 	                This.dodebug('stable state, finish on it');
 	                doReturn(dorender);
 	                return;
 	              }
-	              if(improvements_count>=options.max_improvments_count*curset.length){
+	              if(improvements_count>=this.options.max_improvments_count*curset.length){
 	                //immediately exit cycle and decrease current t
 	                doReturn(dorender);
 	                return;
 	              }
 	            }
 	            //decrease t
-	            t*=options.decrease_value;
-	            if(iterations>this.options.maxtotaliterations){ //not to hang too long
-	              doReturn(dorender);
-	              return;
-	            }
+	            t*=this.options.decrease_value;
 	          };
 	      }
 	  }
@@ -897,7 +898,7 @@
 	    options = options || {};
 	    options.maxlabelcount=options.maxlabelcount || 100;
 	    if(ptcollection.length>options.maxlabelcount){ //FIXME [prepareCurSegments] not aproper way to do things, to overcome two time rendering while zooming
-	      this._map.dodebug('too much labels to compute('+ptcollection.length+'>'+options.maxlabelcount+')');
+	      this._map._dodebug('too much labels to compute('+ptcollection.length+'>'+options.maxlabelcount+')');
 	      return [];
 	    }
 	    var allsegs=[];
@@ -913,7 +914,7 @@
 	      //now it is only fo lines
 	      if(item.layertype==1){
 	        var to_all_segs = this._obtainLineFeatureData(item);
-	        allsegs.push(to_all_segs);
+	        if(to_all_segs.segs.length>0)allsegs.push(to_all_segs);
 	      }
 	    }
 	    return allsegs;
@@ -931,7 +932,7 @@
 	        var ab = [a,b];
 	        var ablen = a.distanceTo(b); //compute segment length only once
 	        var what_to_push ={seg:ab,seglen:ablen};
-	        if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+	        if(ablen>labelLength)cursetItem.push(what_to_push);else if(ablen>0) too_small_segments.push(what_to_push);
 	        // cursetItem.push(what_to_push);
 	      }
 	    }

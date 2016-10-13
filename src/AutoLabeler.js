@@ -41,6 +41,7 @@ L.autoLabeler = function(map)
       this.options.minimizeTotalOverlappingArea = opts.minimizeTotalOverlappingArea || false; //if true, minimize not the count of overlapping labels, but instead their total overlapping area
       this.options.deleteIfNoSolution = opts.deleteIfNoSolution || false; //TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
       this.options.doNotShowIfSegIsTooSmall = opts.doNotShowIfSegIsTooSmall || false; //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
+      this.options.annealingOptions = opts.annealingOptions || {};
     },
 
     /**
@@ -109,12 +110,12 @@ L.autoLabeler = function(map)
       if(this._map.getZoom()>this.options.zoomToStartLabel){
         dataReader._map=this._map;
         var pt  =dataReader.readDataToLabel(this._map) //array for storing paths and values
-        var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:50});
+        var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:80});
         if(allsegs.length==0){
           this._clearNodes();
           return;
         }
-        simulatedAnnealing.perform(allsegs,{},this._renderNodes,this);
+        simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
       }else{
         this._clearNodes();
       }

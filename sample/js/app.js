@@ -6,9 +6,11 @@ var googleHybrid = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z=
     subdomains:['mt0','mt1','mt2','mt3']
 });
 
-var map = new L.Map('map',{renderer:L.svg()}).addLayer(osm).setView(new L.LatLng(60.078, 30.47), 14);
+var map = new L.Map('map',{renderer:L.svg()}).addLayer(osm).setView(new L.LatLng(48.73, 19.61), 8);
 map.addControl(new L.Control.Layers( {'Карта':osm, 'Спутник':googleHybrid}, {}));
-map.autoLabeler.setAutoLabelOptions({labelsDelay:500});
+map.autoLabeler.setAutoLabelOptions({labelsDelay:500,zoomToStartLabel:5,showBBoxes:true,annealingOptions:{
+  maxtotaliterations:1000
+}});
 map.autoLabeler.toggleAutoLabelling();
 
 if(L.Browser.touch){
@@ -16,3 +18,8 @@ if(L.Browser.touch){
 }else {
   L.control.mousePosition().addTo(map);//add mouse coords ctrl
 }
+
+var countries_lr = L.geoJSON(countries).addTo(map);
+var rivers_lr = L.geoJSON(eurivers).addTo(map);
+
+rivers_lr.enableAutoLabel({zoomToStartLabel:6});

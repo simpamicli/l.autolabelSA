@@ -163,7 +163,7 @@ var simulatedAnnealing = {
     this.options.tmin = this.options.tmin || 0.0;
     this.options.constant_temp_repositionings = this.options.constant_temp_repositionings || 10;
     this.options.max_improvments_count = this.options.max_improvments_count || 10;
-    this.options.max_noimprove_count = this.options.max_noimprove_count || 50;
+    this.options.max_noimprove_count = this.options.max_noimprove_count || 20;
     this.options.maxsteps = this.options.maxsteps || 100;
     this.options.maxtotaliterations = this.options.maxtotaliterations || 100000;
     this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
@@ -187,7 +187,7 @@ var simulatedAnnealing = {
           //init
           var curset=this.getInitialRandomState(allsegs); //current label postions
           var curvalues = this.evaluateCurSet(curset); //current overlaping matrix
-          var t=options.t0;
+          var t=this.options.t0;
           var stepcount=0;
           var doexit=curvalues[curvalues.length-1] === 0;//if no overlaping at init state, do nothing and return curretn state
           var iterations=0;
@@ -212,13 +212,13 @@ var simulatedAnnealing = {
              //let know map which timer we are using
             //while constant temperature, do some replacments:
             //  while(t>options.tmin && stepcount<options.maxsteps && !doexit
-            if(t<=options.tmin || stepcount>=options.maxsteps){
+            if(t<=this.options.tmin || stepcount>=this.options.maxsteps){
               doReturn(dorender);
               return;
             }
             stepcount++;
             var improvements_count=0, no_improve_count=0;
-            for(var i=0;i<options.constant_temp_repositionings*curset.length;i++){
+            for(var i=0;i<this.options.constant_temp_repositionings*curset.length;i++){
               var oldvalues = curvalues.slice(0); //clone curvalues in order to return to ld ones
               var oldset = curset.slice(0);
               curset=this.getInitialRandomState(allsegs); //current label postions
@@ -226,6 +226,10 @@ var simulatedAnnealing = {
               iterations++;
               if(curvalues[curvalues.length-1] === 0){
                 This.dodebug('strict solution');
+                doReturn(dorender);
+                return;
+              }
+              if(iterations>this.options.maxtotaliterations){ //not to hang too long
                 doReturn(dorender);
                 return;
               }
@@ -244,23 +248,19 @@ var simulatedAnnealing = {
                  improvements_count++;
                  no_improve_count=0;
                }
-              if(no_improve_count>=options.max_noimprove_count*curset.length){ //it is already optimal
+              if(no_improve_count>=this.options.max_noimprove_count*curset.length){ //it is already optimal
                 This.dodebug('stable state, finish on it');
                 doReturn(dorender);
                 return;
               }
-              if(improvements_count>=options.max_improvments_count*curset.length){
+              if(improvements_count>=this.options.max_improvments_count*curset.length){
                 //immediately exit cycle and decrease current t
                 doReturn(dorender);
                 return;
               }
             }
             //decrease t
-            t*=options.decrease_value;
-            if(iterations>this.options.maxtotaliterations){ //not to hang too long
-              doReturn(dorender);
-              return;
-            }
+            t*=this.options.decrease_value;
           };
       }
   }

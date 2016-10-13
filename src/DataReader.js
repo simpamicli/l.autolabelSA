@@ -66,7 +66,7 @@ var dataReader = {
     options = options || {};
     options.maxlabelcount=options.maxlabelcount || 100;
     if(ptcollection.length>options.maxlabelcount){ //FIXME [prepareCurSegments] not aproper way to do things, to overcome two time rendering while zooming
-      this._map.dodebug('too much labels to compute('+ptcollection.length+'>'+options.maxlabelcount+')');
+      this._map._dodebug('too much labels to compute('+ptcollection.length+'>'+options.maxlabelcount+')');
       return [];
     }
     var allsegs=[];
@@ -82,7 +82,7 @@ var dataReader = {
       //now it is only fo lines
       if(item.layertype==1){
         var to_all_segs = this._obtainLineFeatureData(item);
-        allsegs.push(to_all_segs);
+        if(to_all_segs.segs.length>0)allsegs.push(to_all_segs);
       }
     }
     return allsegs;
@@ -100,7 +100,7 @@ var dataReader = {
         var ab = [a,b];
         var ablen = a.distanceTo(b); //compute segment length only once
         var what_to_push ={seg:ab,seglen:ablen};
-        if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+        if(ablen>labelLength)cursetItem.push(what_to_push);else if(ablen>0) too_small_segments.push(what_to_push);
         // cursetItem.push(what_to_push);
       }
     }
