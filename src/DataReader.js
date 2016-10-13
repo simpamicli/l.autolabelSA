@@ -10,7 +10,7 @@ var dataReader = {
   @returns [Array] returns an array with values : {t:{content_node:SVG textnode},parts:feature parts,layertype}, then, in next funcs we add apoly param to t object, ir, its bounding polygon, layertype = 0 marker, 1 polyline, 2 polygon
   @memberof MapAutoLabelSupport#
   */
-  readDataToLabel:function(){
+  readDataToLabel:()=>{
     var pt  =[];
     if(this._map){
       var bounds_to_contain_labels = geomEssentials.getBoundsWithoutPadding(this._map,0.9); // if needed
@@ -56,7 +56,7 @@ var dataReader = {
   @param {Set} options: options are:  {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
   @memberof MapAutoLabelSupport#
   */
-  prepareCurSegments(ptcollection,options){
+  prepareCurSegments:(ptcollection,options)=>{
     options = options || {};
     options.maxlabelcount=options.maxlabelcount || 100;
     if(ptcollection.length>options.maxlabelcount){ //FIXME [prepareCurSegments] not aproper way to do things, to overcome two time rendering while zooming
@@ -75,39 +75,43 @@ var dataReader = {
       //TODO[prepareCurSegments]IMPORTANT clip _parts angain to about 0.9 size of screen bbox
       //now it is only fo lines
       if(item.layertype==1){
-        var cursetItem=[]; //set of valid segments for this item
-        var too_small_segments=[]; //set of segment which length is less the label's lebgth of corresponding feature
-        var labelLength = item.t.poly[2][0];
-        for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
-          var curpart = item.parts[j];
-          for(var k=1;k<curpart.length;k++){
-            var a = curpart[k-1];
-            var b = curpart[k];
-            var ab = [a,b];
-            var ablen = a.distanceTo(b); //compute segment length only once
-            var what_to_push ={seg:ab,seglen:ablen};
-            if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
-            // cursetItem.push(what_to_push);
-          }
-        }
+        var to_all_segs = this._obtainLineFeatureData(item);
+        allsegs.push(to_all_segs);
       }
+    }
+    return allsegs;
+  },
 
-      var to_all_segs = {t:item.t,layertype:item.layertype};
-      if(cursetItem.length>0)to_all_segs.segs=cursetItem;else to_all_segs.segs=too_small_segments;
+  _obtainLineFeatureData:(item)=>{
+    var cursetItem=[]; //set of valid segments for this item
+    var too_small_segments=[]; //set of segment which length is less the label's lebgth of corresponding feature
+    var labelLength = item.t.poly[2][0];
+    for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
+      var curpart = item.parts[j];
+      for(var k=1;k<curpart.length;k++){
+        var a = curpart[k-1];
+        var b = curpart[k];
+        var ab = [a,b];
+        var ablen = a.distanceTo(b); //compute segment length only once
+        var what_to_push ={seg:ab,seglen:ablen};
+        if(ablen>labelLength)cursetItem.push(what_to_push);else too_small_segments.push(what_to_push);
+        // cursetItem.push(what_to_push);
+      }
+    }
+    var to_all_segs = {t:item.t,layertype:item.layertype};
+    if(cursetItem.length>0)to_all_segs.segs=cursetItem;else to_all_segs.segs=too_small_segments;
 
+    if(to_all_segs.segs.length>0){
       to_all_segs.segs.sort(
         function(s1,s2){ //by segments length, first are small
           return s1.seglen-s2.seglen;
         });
-
-      var total_length=0;
-      for(var m=0;m<to_all_segs.segs.length;m++)total_length+=to_all_segs.segs[m].seglen;
-      to_all_segs.total_length=total_length;
-      allsegs.push(to_all_segs);
+        var total_length=0;
+        for(var m=0;m<to_all_segs.segs.length;m++)total_length+=to_all_segs.segs[m].seglen;
+        to_all_segs.total_length=total_length;
     }
-
-    return allsegs;
-  },
+    return to_all_segs;
+  }
 }
 
 module.exports = dataReader;

@@ -38,19 +38,9 @@ var simulatedAnnealing = {
 
   /**
   based on https://blog.dotzero.ru/weighted-random-simple/
-  get a random element from array, assuming it is sorted ascending order and weights are indexes of elements in the array
+  get a random element from segments array of the item, assuming it is sorted lengths ascending order
+  probability is higher for longer segment
   */
-  getWeightedRandomIndex( segs )
-  {
-    var total = segs.length*(segs.length-1)/2; //weight is number in array
-    var n = 0;
-    var num = Math.floor(Math.random()*total);
-    for(var i =0;i< segs.length; i++){
-      n+=i;
-      if(n>=num)return i;
-    }
-  },
-
   getIndexBasedOnTotalLengthRandom:function(item){
     var random_pos = Math.random()*item.total_length; //get a position random for all segments of this polyline visible on the screen
     //obtain and index of segment, to which belongs this position, it is assumed tha segments are sorted by length
@@ -61,11 +51,9 @@ var simulatedAnnealing = {
     }
     return i;
   },
+
   /**
   computes label candidate object to place on map
-  TODO [computeLabelCandidate] place label on both sides of segment
-  TODO [computeLabelCandidate] check label not to exceed side of the screen, maybe slide along segment
-  TODO [computeLabelCandidate] add polygon support: if two or more independent areas of one poly on screen, label both
   @param {Number} i: an index in allsegs array to obtain label for candidate and segments array wuth segments to choose
   @returns {Object} : an object with {t,poly,pos,a,allsegs_index} elements, such as t - text to label,poly - bounding rect of label, pos - pos to place label, a - angle to rotate label,allsegs_index - index in segments array
   */
@@ -91,21 +79,12 @@ var simulatedAnnealing = {
         break;
     }
 
+    if(!point_and_angle){
+      this.dodebug('error is here');
+    }
     if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
     poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
     return {t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};;
-  },
-
-  /**
-  clones element of curset
-  @param {Number} index:
-  @param {Array} curset:
-  @returns {Object}:
-  */
-  copyCandidate:function(index,curset) {
-    var cancopy = curset[index];
-    cancopy.poly = curset[index].poly.slice(0);
-    return cancopy;
   },
 
   /**
@@ -120,18 +99,6 @@ var simulatedAnnealing = {
       res.push(candidate);
     }
     return res;
-  },
-
-  /**
-  swaps position for a random label with another from this label's positions pool
-  @param {Number} index : index of label in allsegs to select new random position from availavle choices.
-  @param {Array} curset: currently selected label postions
-  @param {Array} allsegs: all available postions
-  */
-  swapCandidateInLabelSet:function(idx,curset,allsegs){
-    var label_index = curset[idx].allsegs_index;
-    var new_candidate = this.computeLabelCandidate(label_index,allsegs);
-    curset[idx]=new_candidate;
   },
 
   /**
@@ -185,31 +152,6 @@ var simulatedAnnealing = {
     return overlap_values;
   },
 
-  /**
-  calculates total overlapping area with knowlesge of previous value and what label was moved
-  @param {Array} curvalue: array of float computed at previous step or initital step, consist of elements of lower-triangluar matrix (i,j) of values of overlapping areas for (i,j) els of curset
-  @param {Array} curset: current set of label with positions
-  @param {Number} changedLabelIndex: an index of label which position we changed
-  @returns {Array} : curvalues, recalculated
-  @memberof MapAutoLabelSupport#
-  */
-  evaluateAfterOneChanged:function(curvalues,curset,changedLabelIndex) {
-    var counter=0; //index to iterate through curvalue array
-    for(var i in curset){
-      for(var j in curset){if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
-        if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
-          var area=this.checkOverLappingArea(curset[i].poly,curset[j].poly,this.options.minimizeTotalOverlappingArea); //and recalculate areas
-          curvalues[counter]=area;
-          }
-          counter++;
-        }
-      }
-    }
-    curvalues.pop(); //remove prev sum
-    this.assignCostFunctionValuesToLastEl(curvalues);
-    return curvalues;
-  },
-
   dodebug:function(message){
     if(this.options.debug)console.log(message);
   },
@@ -217,19 +159,17 @@ var simulatedAnnealing = {
   processOptions:function(options){
     this.options=options || {};
     this.options.t0 = this.options.t0 || 2.5;
-    this.options.decrease_value = this.options.decrease_value || 0.8; //decrease by ten percent each decrease step
+    this.options.decrease_value = this.options.decrease_value || 0.9; //decrease by ten percent each decrease step
     this.options.tmin = this.options.tmin || 0.0;
-    this.options.constant_temp_repositionings = this.options.constant_temp_repositionings || 20;
-    this.options.max_improvments_count = this.options.max_improvments_count || 50;
+    this.options.constant_temp_repositionings = this.options.constant_temp_repositionings || 10;
+    this.options.max_improvments_count = this.options.max_improvments_count || 10;
     this.options.max_noimprove_count = this.options.max_noimprove_count || 50;
-    this.options.maxsteps = this.options.maxsteps || 300;
-    this.options.maxtotaliterations = this.options.maxtotaliterations || 15000;
+    this.options.maxsteps = this.options.maxsteps || 100;
+    this.options.maxtotaliterations = this.options.maxtotaliterations || 100000;
     this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
-    this.options.checkDistanceFromCenter=this.options.checkDistanceFromCenter || false;
-    this.options.mapCenter=this.options.mapCenter || [0,0];
     this.options.debug=this.options.debug || true;
-    this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true; //TODO [processOptions]
-    this.options.lineDiscreteStepPx = this.options.lineDiscreteStepPx || 10; //pixels
+    this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
+    this.options.lineDiscreteStepPx = this.options.lineDiscreteStepPx || 1; //pixels
   },
 
   /**
@@ -272,15 +212,17 @@ var simulatedAnnealing = {
              //let know map which timer we are using
             //while constant temperature, do some replacments:
             //  while(t>options.tmin && stepcount<options.maxsteps && !doexit
-            if(t<=options.tmin || stepcount>=options.maxsteps)return;
+            if(t<=options.tmin || stepcount>=options.maxsteps){
+              doReturn(dorender);
+              return;
+            }
             stepcount++;
             var improvements_count=0, no_improve_count=0;
             for(var i=0;i<options.constant_temp_repositionings*curset.length;i++){
-              var oldvalues = curvalues.slice(0), //clone curvalues in order to return to ld ones
-                  random_label_ind = Math.floor((Math.random() * curset.length) ), //randomly choose one label
-                  old_pos = This.copyCandidate(random_label_ind,curset);
-              This.swapCandidateInLabelSet(random_label_ind,curset,allsegs); //change label position
-              This.evaluateAfterOneChanged(curvalues,curset,random_label_ind); //calc new sum
+              var oldvalues = curvalues.slice(0); //clone curvalues in order to return to ld ones
+              var oldset = curset.slice(0);
+              curset=this.getInitialRandomState(allsegs); //current label postions
+              curvalues = this.evaluateCurSet(curset); //current overlaping matrix
               iterations++;
               if(curvalues[curvalues.length-1] === 0){
                 This.dodebug('strict solution');
@@ -292,7 +234,7 @@ var simulatedAnnealing = {
                 var P=1 - Math.exp(delta/t);
                 if(P>Math.random()){ //undo label reposition with probability of P
                   curvalues = oldvalues;
-                  curset[random_label_ind]=old_pos;
+                  curset=oldset;
                   no_improve_count++;
                 }else { //approve new repositioning
                   improvements_count++;
