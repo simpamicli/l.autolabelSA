@@ -6,9 +6,9 @@ Auto-label plugin for leaflet
 
 Include *l.autolabelSA* in your proj. It is assumed that *leaflet* is included before.
 
-Add then *map.autoLabeler.toggleAutolabelling()* for your map(s). To set options, use map.autoLabeler.setAutoLabellingOptions(youroptions);
+Add then *map.autoLabeler.toggleAutolabelling()* for your map(s). To set options, use *map.autoLabeler.setAutoLabellingOptions(youroptions)*;
 
-  options : TODO
+  options : TODO, see code *Autolabeler.js*
 
 
 
