@@ -108,7 +108,7 @@ L.autoLabeler = function(map)
       if(!this._autoLabel)return; //nothing to do here
       if(this._map.getZoom()>this.options.zoomToStartLabel){
         dataReader._map=this._map;
-        var pt  =dataReader.readDataToLabel() //array for storing paths and values
+        var pt  =dataReader.readDataToLabel(this._map) //array for storing paths and values
         var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:50});
         if(allsegs.length==0){
           this._clearNodes();

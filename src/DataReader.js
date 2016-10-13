@@ -1,6 +1,9 @@
 /**
 Module to extract sufficient info to label data on the map
 */
+
+"use strict";
+
 var DOMEssentials = require("./DOMEssentials.js");
 var geomEssentials = require("./geomEssentials.js");
 
@@ -10,12 +13,13 @@ var dataReader = {
   @returns [Array] returns an array with values : {t:{content_node:SVG textnode},parts:feature parts,layertype}, then, in next funcs we add apoly param to t object, ir, its bounding polygon, layertype = 0 marker, 1 polyline, 2 polygon
   @memberof MapAutoLabelSupport#
   */
-  readDataToLabel:()=>{
+  readDataToLabel:function(){
     var pt  =[];
+    //this._map=map_to_add;
     if(this._map){
       //var bounds_to_contain_labels = geomEssentials.getBoundsWithoutPadding(this._map,0.9); // if needed
       for(var i in this._map.autoLabeler._layers2label)
-      if(this._map.getZoom()>this._map._map.autoLabeler._layers2label[i]._al_options.zoomToStartLabel)
+      if(this._map.getZoom()>this._map.autoLabeler._layers2label[i]._al_options.zoomToStartLabel)
       {
         var lg=this._map.autoLabeler._layers2label[i];
         var map_to_add = this._map;
@@ -58,7 +62,7 @@ var dataReader = {
   @param {Set} options: options are:  {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
   @memberof MapAutoLabelSupport#
   */
-  prepareCurSegments:(ptcollection,options)=>{
+  prepareCurSegments:function(ptcollection,options){
     options = options || {};
     options.maxlabelcount=options.maxlabelcount || 100;
     if(ptcollection.length>options.maxlabelcount){ //FIXME [prepareCurSegments] not aproper way to do things, to overcome two time rendering while zooming
@@ -84,7 +88,7 @@ var dataReader = {
     return allsegs;
   },
 
-  _obtainLineFeatureData:(item)=>{
+  _obtainLineFeatureData:function(item){
     var cursetItem=[]; //set of valid segments for this item
     var too_small_segments=[]; //set of segment which length is less the label's lebgth of corresponding feature
     var labelLength = item.t.poly[2][0];
