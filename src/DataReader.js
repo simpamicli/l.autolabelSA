@@ -13,8 +13,10 @@ var dataReader = {
   readDataToLabel:()=>{
     var pt  =[];
     if(this._map){
-      var bounds_to_contain_labels = geomEssentials.getBoundsWithoutPadding(this._map,0.9); // if needed
-      for(var i in this._map.autoLabeler._layers2label){
+      //var bounds_to_contain_labels = geomEssentials.getBoundsWithoutPadding(this._map,0.9); // if needed
+      for(var i in this._map.autoLabeler._layers2label)
+      if(this._map.getZoom()>this._map._map.autoLabeler._layers2label[i]._al_options.zoomToStartLabel)
+      {
         var lg=this._map.autoLabeler._layers2label[i];
         var map_to_add = this._map;
         lg.eachLayer(function(layer){

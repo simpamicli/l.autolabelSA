@@ -27,6 +27,7 @@
       this._al_options.labelStyle = options.labelStyle || "fill: lime; stroke: #000000;  font-size: 20px;"; //TODO [enableAutoLabel] add ability to set unique style for each feature
       this._al_options.propertyName = options.propertyName || "name";
       this._al_options.priority = options.priority || 0; //highest
+      this._al_options.zoomToStartLabel = options.zoomToStartLabel || this._map.autoLabeler.options.zoomToStartLabel;
       this._map.autoLabeler.addLayer(this);
     },
 
