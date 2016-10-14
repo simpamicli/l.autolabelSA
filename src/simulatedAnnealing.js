@@ -154,14 +154,17 @@ var simulatedAnnealing = {
 
 
   markOveralppedLabels:function(curset,overlappedvalues){
+    var counter=0;
     for(var i in curset){
       for(var j in curset){
         if(i>j){
-          if(overlappedvalues[i+j]>0){
+          if(overlappedvalues[counter]>0){
             curset[i].overlaps = true;
             curset[j].overlaps = true;
             this.dodebug(curset[i].t.content_node.textContent +' /// '+curset[j].t.content_node.textContent  )
+
           }
+          counter++;
         }
       }
     }
