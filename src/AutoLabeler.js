@@ -115,7 +115,10 @@ L.autoLabeler = function(map)
           this._clearNodes();
           return;
         }
-        simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
+        simulatedAnnealing.processOptions({});
+        curset = simulatedAnnealing.getInitialRandomState(allsegs);
+        this._renderNodes(curset);
+        // simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
       }else{
         this._clearNodes();
       }
@@ -124,14 +127,18 @@ L.autoLabeler = function(map)
     /**
     for test purposes now, creates a polygon node useing poly Array of points
     */
-    _createPolygonNode:function(poly){
+    _createPolygonNode:function(poly,highlited){
       var node = L.SVG.create('polygon');
       var points='';
       for(var i=0;i<poly.length;i++){
         points+=poly[i][0]+','+poly[i][1]+' ';
       }
       node.setAttribute('points', points.trim());
-      node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
+      if(highlited){
+        this._dodebug('overlaps');
+        node.setAttribute('style','fill: yellow; fill-opacity:1; stroke: black;');
+      }
+      else node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
       return node;
     },
 
@@ -166,7 +173,7 @@ L.autoLabeler = function(map)
         this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
         if(this.options.showBBoxes){
           //here for testing purposes
-          var polynode = this._createPolygonNode(labelset[m].poly);
+          var polynode = this._createPolygonNode(labelset[m].poly,labelset[m].ovelaps);
           svg.appendChild(polynode);
           this._nodes.push(polynode); //add this polygon to _nodes array, so we can erase it from the screen later
         }

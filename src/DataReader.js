@@ -100,7 +100,7 @@ var dataReader = {
         var ab = [a,b];
         var ablen = a.distanceTo(b); //compute segment length only once
         var what_to_push ={seg:ab,seglen:ablen};
-        if(ablen>labelLength)cursetItem.push(what_to_push);else if(ablen>0) too_small_segments.push(what_to_push);
+        if(ablen>0)cursetItem.push(what_to_push);else if(ablen>0) too_small_segments.push(what_to_push);
         // cursetItem.push(what_to_push);
       }
     }

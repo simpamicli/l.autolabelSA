@@ -152,6 +152,21 @@ var simulatedAnnealing = {
     return overlap_values;
   },
 
+
+  markOveralppedLabels:function(curset,overlappedvalues){
+    for(var i in curset){
+      for(var j in curset){
+        if(i>j){
+          if(overlappedvalues[i+j]>0){
+            curset[i].overlaps = true;
+            curset[j].overlaps = true;
+            this.dodebug(curset[i].t.content_node.textContent +' /// '+curset[j].t.content_node.textContent  )
+          }
+        }
+      }
+    }
+  },
+
   dodebug:function(message){
     if(this.options.debug)console.log(message);
   },
@@ -200,6 +215,7 @@ var simulatedAnnealing = {
               This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
               var t1 = performance.now();
               This.dodebug('time to annealing = '+(t1-t0));
+              This.markOveralppedLabels(curset,curvalues);
               callback.call(context,curset);
             }else{
               This.dodebug('Map state has been changed. Terminated.');

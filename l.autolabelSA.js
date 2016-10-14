@@ -230,7 +230,10 @@
 	          this._clearNodes();
 	          return;
 	        }
-	        simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
+	        simulatedAnnealing.processOptions({});
+	        curset = simulatedAnnealing.getInitialRandomState(allsegs);
+	        this._renderNodes(curset);
+	        // simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
 	      }else{
 	        this._clearNodes();
 	      }
@@ -239,14 +242,18 @@
 	    /**
 	    for test purposes now, creates a polygon node useing poly Array of points
 	    */
-	    _createPolygonNode:function(poly){
+	    _createPolygonNode:function(poly,highlited){
 	      var node = L.SVG.create('polygon');
 	      var points='';
 	      for(var i=0;i<poly.length;i++){
 	        points+=poly[i][0]+','+poly[i][1]+' ';
 	      }
 	      node.setAttribute('points', points.trim());
-	      node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
+	      if(highlited){
+	        this._dodebug('overlaps');
+	        node.setAttribute('style','fill: yellow; fill-opacity:1; stroke: black;');
+	      }
+	      else node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
 	      return node;
 	    },
 	
@@ -281,7 +288,7 @@
 	        this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
 	        if(this.options.showBBoxes){
 	          //here for testing purposes
-	          var polynode = this._createPolygonNode(labelset[m].poly);
+	          var polynode = this._createPolygonNode(labelset[m].poly,labelset[m].ovelaps);
 	          svg.appendChild(polynode);
 	          this._nodes.push(polynode); //add this polygon to _nodes array, so we can erase it from the screen later
 	        }
@@ -709,6 +716,21 @@
 	    return overlap_values;
 	  },
 	
+	
+	  markOveralppedLabels:function(curset,overlappedvalues){
+	    for(var i in curset){
+	      for(var j in curset){
+	        if(i>j){
+	          if(overlappedvalues[i+j]>0){
+	            curset[i].overlaps = true;
+	            curset[j].overlaps = true;
+	            this.dodebug(curset[i].t.content_node.textContent +' /// '+curset[j].t.content_node.textContent  )
+	          }
+	        }
+	      }
+	    }
+	  },
+	
 	  dodebug:function(message){
 	    if(this.options.debug)console.log(message);
 	  },
@@ -757,6 +779,7 @@
 	              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
 	              var t1 = performance.now();
 	              This.dodebug('time to annealing = '+(t1-t0));
+	              This.markOveralppedLabels(curset,curvalues);
 	              callback.call(context,curset);
 	            }else{
 	              This.dodebug('Map state has been changed. Terminated.');
@@ -932,7 +955,7 @@
 	        var ab = [a,b];
 	        var ablen = a.distanceTo(b); //compute segment length only once
 	        var what_to_push ={seg:ab,seglen:ablen};
-	        if(ablen>labelLength)cursetItem.push(what_to_push);else if(ablen>0) too_small_segments.push(what_to_push);
+	        if(ablen>0)cursetItem.push(what_to_push);else if(ablen>0) too_small_segments.push(what_to_push);
 	        // cursetItem.push(what_to_push);
 	      }
 	    }
