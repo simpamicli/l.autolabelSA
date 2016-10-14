@@ -11,7 +11,6 @@ var dataReader = {
   /**
   creates an array of features's segments for each feature  of layers2label's layers on screen along with SVG text corresponding to
   @returns [Array] returns an array with values : {t:{content_node:SVG textnode},parts:feature parts,layertype}, then, in next funcs we add apoly param to t object, ir, its bounding polygon, layertype = 0 marker, 1 polyline, 2 polygon
-  @memberof MapAutoLabelSupport#
   */
   readDataToLabel:function(){
     var pt  =[];
@@ -33,11 +32,6 @@ var dataReader = {
             if(layer instanceof L.Polyline || layer instanceof L.Polygon){ //polyline case
                 if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
                   layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
-                  //TEMPORARY TOFIX
-                  // if(layer_type==1 && map_to_add.autoLabeler.options.checkLabelsInside){
-                  //     centerOrParts = geomEssentials.clipClippedPoints(layer._parts,bounds_to_contain_labels);
-                  // }
-                  // else
                   centerOrParts=layer._parts; //for polygon
                 }
               }
@@ -60,7 +54,6 @@ var dataReader = {
   extracts good segments from available polyline parts and converts to use in next procedures of pos estimation
   @param {Array} ptcollection: each item is conatiner with t:label to draw for this polyline, parts - parts of this pline visible on screen in pixel coords
   @param {Set} options: options are:  {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
-  @memberof MapAutoLabelSupport#
   */
   prepareCurSegments:function(ptcollection,options){
     options = options || {};
@@ -77,8 +70,6 @@ var dataReader = {
         continue;
       }
       //else compute for lines and polygons
-      //TODO[prepareCurSegments] add valid parsing for polygon case
-      //TODO[prepareCurSegments]IMPORTANT clip _parts angain to about 0.9 size of screen bbox
       //now it is only fo lines
       if(item.layertype==1){
         var to_all_segs = this._obtainLineFeatureData(item);
@@ -90,7 +81,6 @@ var dataReader = {
 
   _obtainLineFeatureData:function(item){
     var cursetItem=[]; //set of valid segments for this item
-    var too_small_segments=[]; //set of segment which length is less the label's lebgth of corresponding feature
     var labelLength = item.t.poly[2][0];
     for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
       var curpart = item.parts[j];
@@ -100,13 +90,12 @@ var dataReader = {
         var ab = [a,b];
         var ablen = a.distanceTo(b); //compute segment length only once
         var what_to_push ={seg:ab,seglen:ablen};
-        if(ablen>0)cursetItem.push(what_to_push);else if(ablen>0) too_small_segments.push(what_to_push);
+        if(ablen>0)cursetItem.push(what_to_push);
         // cursetItem.push(what_to_push);
       }
     }
     var to_all_segs = {t:item.t,layertype:item.layertype};
-    if(cursetItem.length>0)to_all_segs.segs=cursetItem;else to_all_segs.segs=too_small_segments;
-
+    to_all_segs.segs=cursetItem;
     if(to_all_segs.segs.length>0){
       to_all_segs.segs.sort(
         function(s1,s2){ //by segments length, first are small

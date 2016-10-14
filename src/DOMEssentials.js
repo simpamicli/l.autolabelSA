@@ -3,7 +3,7 @@
 'use strict';
 var geomEssentials = require("./geomEssentials.js");
 
-var DOMEssentials = {
+module.exports = {
   /**
   converts TextRectangle object to clockwise array of 2d-arrays, representing rectangular poly
   @param {TextRectangle} rect: a bbox for text
@@ -44,5 +44,3 @@ var DOMEssentials = {
     return node;
   }
 }
-
-module.exports = DOMEssentials;

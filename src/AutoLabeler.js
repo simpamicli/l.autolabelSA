@@ -3,7 +3,7 @@ var geomEssentials = require('./geomEssentials.js');
 var simulatedAnnealing = require('./simulatedAnnealing.js');
 var dataReader = require('./DataReader.js');
 
-L.autoLabeler = function(map)
+var autoLabeler = function(map)
 {
     var AL={
     _map:map,
@@ -137,7 +137,6 @@ L.autoLabeler = function(map)
       }
       node.setAttribute('points', points.trim());
       if(highlited){
-        this._dodebug('overlaps');
         node.setAttribute('style','fill: red; fill-opacity:0.3; stroke: black;');
       }
       else node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
@@ -185,4 +184,4 @@ L.autoLabeler = function(map)
   return AL;
 }
 
-module.exports = L.autoLabeler;
+module.exports = autoLabeler;

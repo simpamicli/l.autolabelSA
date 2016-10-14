@@ -162,7 +162,6 @@ var simulatedAnnealing = {
             curset[i].overlaps = true;
             curset[j].overlaps = true;
             this.dodebug(curset[i].t.content_node.textContent +' /// '+curset[j].t.content_node.textContent  )
-
           }
           counter++;
         }
