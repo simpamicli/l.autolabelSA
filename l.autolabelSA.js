@@ -231,7 +231,9 @@
 	          return;
 	        }
 	        simulatedAnnealing.processOptions({});
-	        curset = simulatedAnnealing.getInitialRandomState(allsegs);
+	        var curset = simulatedAnnealing.getInitialRandomState(allsegs);
+	        var curvalues = simulatedAnnealing.evaluateCurSet(curset);
+	        simulatedAnnealing.markOveralppedLabels(curset,curvalues);
 	        this._renderNodes(curset);
 	        // simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
 	      }else{
@@ -251,7 +253,7 @@
 	      node.setAttribute('points', points.trim());
 	      if(highlited){
 	        this._dodebug('overlaps');
-	        node.setAttribute('style','fill: yellow; fill-opacity:1; stroke: black;');
+	        node.setAttribute('style','fill: red; fill-opacity:0.3; stroke: black;');
 	      }
 	      else node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
 	      return node;
@@ -266,7 +268,7 @@
 	        svg.removeChild(this._nodes[i]);
 	      }
 	      this._nodes=[];
-	      this._dodebug("Cleared nodes");
+	      // this._dodebug("Cleared nodes");
 	    },
 	
 	    /**
@@ -288,7 +290,7 @@
 	        this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
 	        if(this.options.showBBoxes){
 	          //here for testing purposes
-	          var polynode = this._createPolygonNode(labelset[m].poly,labelset[m].ovelaps);
+	          var polynode = this._createPolygonNode(labelset[m].poly,labelset[m].overlaps);
 	          svg.appendChild(polynode);
 	          this._nodes.push(polynode); //add this polygon to _nodes array, so we can erase it from the screen later
 	        }
