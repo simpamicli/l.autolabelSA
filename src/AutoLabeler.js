@@ -5,7 +5,7 @@ var dataReader = require('./DataReader.js');
 
 var autoLabeler = function(map)
 {
-    var AL={
+    return {
     _map:map,
     _nodes:[], //an array for storing SVG node to draw while autolabelling
     _layers2label:[], //an array to know which layergroups are to label
@@ -181,7 +181,6 @@ var autoLabeler = function(map)
       }
     }
   }
-  return AL;
 }
 
 module.exports = autoLabeler;

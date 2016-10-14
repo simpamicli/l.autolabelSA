@@ -106,6 +106,14 @@ var dataReader = {
         to_all_segs.total_length=total_length;
     }
     return to_all_segs;
+  },
+
+  _getLineSegmentBoundaryPoly:function(seg){
+    //TODO [_getLineSegmentBoundaryPoly]
+  },
+
+  prepareGeneralConflictGraph:function(all_segs){
+    //TODO[prepareGeneralConflictGraph]
   }
 }
 
