@@ -29,8 +29,22 @@ if(L.Browser.touch){
 }
 
 var countries_lr = L.geoJSON(countries).addTo(map);
-var rivers_lr = L.geoJSON(eurivers).addTo(map);
+var rivers_lr = L.geoJSON(eurivers,{
+  onEachFeature:function(feature,layer){
+    layer.on('mouseover mousemove', function(e){
+      var hover_bubble = new L.Rrose({ offset: new L.Point(0,-10), closeButton: false, autoPan: false })
+        .setContent(feature.properties.name)
+        .setLatLng(e.latlng)
+        .openOn(map);
+    });
+    layer.on('mouseout', function(e){ map.closePopup() });
+  }
+}).addTo(map);
+
 
 rivers_lr.enableAutoLabel({zoomToStartLabel:6});
+
+var testGJ = L.geoJSON(testGEO).addTo(map);
+testGJ.enableAutoLabel({});
 
 map.options.renderer.padding = 0;

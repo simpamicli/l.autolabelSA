@@ -86,6 +86,63 @@ var simulatedAnnealing = {
     }
   },
 
+  getOverlappingLabelsIndexes:function(curvalues,curset){
+    var counter=0, result=[];
+    for(var i in curset)
+     for(var j in curset)if(i>j){
+       if(curvalues[counter]>0){
+         result.push(i); result.push(j);
+       }
+       counter++;
+     }
+    return result;
+  },
+
+  /**
+  swaps position for a random label with another from this label's positions pool
+  @param {Number} index : index of label in allsegs to select new random position from availavle choices.
+  @param {Array} curset: currently selected label postions
+  @param {Array} allsegs: all available postions
+  @memberof MapAutoLabelSupport#
+  */
+  swapCandidateInLabelSetToNew:function(idx,curset,allsegs){
+    var label_index = curset[idx].allsegs_index;
+    var new_candidate = candidateGenerator.computeLabelCandidate(label_index,allsegs);
+    curset[idx]=new_candidate;
+  },
+
+  applyNewPositionsForLabelsInArray:function(idx_array,curset,allsegs){
+    for(var i in idx_array)this.swapCandidateInLabelSetToNew(idx_array[i],curset,allsegs);
+  },
+
+  /**
+  calculates total overlapping area with knowlesge of previous value and what label was moved
+  @param {Array} curvalue: array of float computed at previous step or initital step, consist of elements of lower-triangluar matrix (i,j) of values of overlapping areas for (i,j) els of curset
+  @param {Array} curset: current set of label with positions
+  @param {Number} changedLabelIndex: an index of label which position we changed
+  @returns {Array} : curvalues, recalculated
+  @memberof MapAutoLabelSupport#
+  */
+  evaluateAfterSeveralChanged:function(curvalues,curset,changedLabels) {
+    var counter=0; //index to iterate through curvalue array
+    while(changedLabels.length>0){
+      var changedLabelIndex=changedLabels.pop();
+      for(var i=0;i<curset.length;i++){
+        for(var j=0;j<curset.length;j++){if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
+          if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
+            var area=this.checkOverLappingArea(curset[i].poly,curset[j].poly,this.options.minimizeTotalOverlappingArea); //and recalculate areas
+            curvalues[counter]=area;
+            }
+            counter++;
+          }
+        }
+      }
+    }
+    curvalues.pop(); //remove prev sum
+    this.assignCostFunctionValuesToLastEl(curvalues);
+    return curvalues;
+  },
+
   dodebug:function(message){
     if(this.options.debug)console.log(message);
   },
@@ -120,18 +177,15 @@ var simulatedAnnealing = {
           var t0 = performance.now();
           this.processOptions(options);
           //init
-          var curset=this.getInitialRandomState(allsegs); //current label postions
-          var curvalues = this.evaluateCurSet(curset); //current overlaping matrix (conflict graph)
-          var t=this.options.t0;
-          var stepcount=0;
-          var doexit=curvalues[curvalues.length-1] === 0;//if no overlaping at init state, do nothing and return curretn state
-          var iterations=0;
-          var This=this;
+          var curset=this.getInitialRandomState(allsegs), //current label postions
+           curvalues = this.evaluateCurSet(curset), //current overlaping matrix (conflict graph)
+           t=this.options.t0, stepcount=0, doexit=curvalues[curvalues.length-1] === 0,//if no overlaping at init state, do nothing and return curretn state
+           iterations=0, This=this;
 
           var doReturn = function(dorender){
             This.dodebug('-----');
             if(dorender){
-              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);              
+              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
               This.dodebug('time to annealing = '+(performance.now()-t0));
               This.markOveralppedLabels(curset,curvalues);
               callback.call(context,curset);
@@ -157,10 +211,12 @@ var simulatedAnnealing = {
               var oldset = curset.slice(0);
               //now replace randomly all positions, not a sim ann actually
               //TODO [simulatedAnnealing] do actual sim ann - move only overlapping now labels to new random position, for example
-              curset=this.getInitialRandomState(allsegs); //current label postions
-              curvalues = this.evaluateCurSet(curset); //current overlaping matrix
+              var overlapped_indexes = this.getOverlappingLabelsIndexes(curvalues,curset);
+              this.applyNewPositionsForLabelsInArray(overlapped_indexes,curset,allsegs);
+              // this.evaluateAfterSeveralChanged(curvalues,curset,overlapped_indexes);
+              curvalues=this.evaluateCurSet(curset);
               iterations++;
-              if(curvalues[curvalues.length-1] === 0){
+              if(curvalues[curvalues.length-1] === 0){ //no overlaps already
                 This.dodebug('strict solution');
                 doReturn(dorender);
                 return;

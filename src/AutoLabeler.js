@@ -113,12 +113,12 @@ L.AutoLabeler = L.Evented.extend(
           this._clearNodes();
           return;
         }
-        simulatedAnnealing.processOptions({});
-        var curset = simulatedAnnealing.getInitialRandomState(allsegs);
-        var curvalues = simulatedAnnealing.evaluateCurSet(curset);
-        simulatedAnnealing.markOveralppedLabels(curset,curvalues);
-        this._renderNodes(curset);
-        // simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
+        // simulatedAnnealing.processOptions({});
+        // var curset = simulatedAnnealing.getInitialRandomState(allsegs);
+        // var curvalues = simulatedAnnealing.evaluateCurSet(curset);
+        // simulatedAnnealing.markOveralppedLabels(curset,curvalues);
+        // this._renderNodes(curset);
+        simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
       }else{
         this._clearNodes();
       }
