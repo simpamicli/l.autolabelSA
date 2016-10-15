@@ -160,8 +160,7 @@ var simulatedAnnealing = {
     this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
     this.options.debug=this.options.debug || true;
     this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
-    candidateGenerator.options=candidateGenerator.options || {};
-    candidateGenerator.options.lineDiscreteStepPx = candidateGenerator.options.lineDiscreteStepPx || 1; //pixels
+    candidateGenerator.options.lineDiscreteStepPx = this.options.lineDiscreteStepPx || candidateGenerator.options.lineDiscreteStepPx; //pixels
   },
 
   /**

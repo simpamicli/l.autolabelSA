@@ -89,7 +89,8 @@ var dataReader = {
         var b = curpart[k];
         var ab = [a,b];
         var ablen = a.distanceTo(b); //compute segment length only once
-        var what_to_push ={seg:ab,seglen:ablen};
+        var abangle = geomEssentials.computeAngle(a,b,true);
+        var what_to_push ={seg:ab,seglen:ablen,angle:abangle};
         if(ablen>0)cursetItem.push(what_to_push);
         // cursetItem.push(what_to_push);
       }
@@ -97,10 +98,10 @@ var dataReader = {
     var to_all_segs = {t:item.t,layertype:item.layertype};
     to_all_segs.segs=cursetItem;
     if(to_all_segs.segs.length>0){
-      to_all_segs.segs.sort(
+      /*to_all_segs.segs.sort(
         function(s1,s2){ //by segments length, first are small
           return s1.seglen-s2.seglen;
-        });
+        });*/
         var total_length=0;
         for(var m=0;m<to_all_segs.segs.length;m++)total_length+=to_all_segs.segs[m].seglen;
         to_all_segs.total_length=total_length;
@@ -108,9 +109,14 @@ var dataReader = {
     return to_all_segs;
   },
 
-  _getLineSegmentBoundaryPoly:function(seg){
+  _getLineSegmentBoundaryPoly:function(item){
     //TODO [_getLineSegmentBoundaryPoly]
-    
+    // var labelLength = item.t.poly[2][0];
+    var labelHeight = -item.t.poly[1][1];
+    for(var j=0;j<item.parts.length;j++){
+        var curpart = item.parts[j];
+
+    }
   },
 
   prepareGeneralConflictGraph:function(all_segs){

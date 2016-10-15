@@ -89,8 +89,14 @@ var geomEssentials = {
   code from L.GeometryUtil plugin
   @memberof geomEssentials#
   */
-  computeAngle: function(a, b) {
-      return (Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI);
+  computeAngle: function(a, b, check_left_to_right) {
+      var x1 = a.x, x2 = b.x;
+      if(check_left_to_right){
+        if(x1>x2){
+          var tmp=x1; x1=x2; x2=tmp;
+        }
+      }
+      return (Math.atan2(b.y - a.y, x2 - x1) * 180 / Math.PI);
   },
 
   /**
@@ -191,7 +197,12 @@ var geomEssentials = {
       res.push([x_rotated,y_rotated]);
     }
     return res;
+  },
+
+  createPoly:function(width,height){
+    //TODO[createPoly]
   }
+
 }
 
 module.exports = geomEssentials;
