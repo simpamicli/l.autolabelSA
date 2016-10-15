@@ -7,11 +7,19 @@ var googleHybrid = L.tileLayer('http://{s}.google.com/vt/lyrs=s,h&x={x}&y={y}&z=
 });
 
 // var map = new L.Map('map',{renderer:L.svg()}).addLayer(osm).setView(new L.LatLng(60.04, 30.37), 12);
-var map = new L.Map('map',{renderer:L.svg()}).addLayer(osm).setView(new L.LatLng(48, 19), 8);
+var map = new L.Map('map',{renderer:L.svg(),
+                           autolabel:true,
+                           autolabelOptions:{
+                             labelsDelay:500,
+                             zoomToStartLabel:5,
+                             showBBoxes:true,
+                             annealingOptions:{
+                               maxtotaliterations:1000
+                             }
+                            }
+                           }).addLayer(osm).setView(new L.LatLng(48, 19), 8);
 map.addControl(new L.Control.Layers( {'Карта':osm, 'Спутник':googleHybrid}, {}));
-map.autoLabeler.setAutoLabelOptions({labelsDelay:500,zoomToStartLabel:5,showBBoxes:true,annealingOptions:{
-  maxtotaliterations:1000
-}});
+
 map.autoLabeler.toggleAutoLabelling();
 
 if(L.Browser.touch){

@@ -3,14 +3,28 @@ var geomEssentials = require('./geomEssentials.js');
 var simulatedAnnealing = require('./simulatedAnnealing.js');
 var dataReader = require('./DataReader.js');
 
-var autoLabeler = function(map)
-{
-    return {
-    _map:map,
+L.AutoLabeler = L.Evented.extend(
+ {
     _nodes:[], //an array for storing SVG node to draw while autolabelling
     _layers2label:[], //an array to know which layergroups are to label
-    options:{}, //autolabel options
+    options:{
+      showBBoxes:false, //display bounding boxes around texts
+      debug:true,//show debug info in hte cons
+      labelsDelay:1000,//a time after update event of renderer when labelling should start, if zero - errors while zooming
+      checkLabelsInside:true,//re-clip all segments to entirely fit map window without padding, disabling increases performance, but some labels maybe invisible due to padding of renderer
+      zoomToStartLabel:13,//if map zoom lev is below this, do not show labels
+      minimizeTotalOverlappingArea:false, //if true, minimize not the count of overlapping labels, but instead their total overlapping area
+      deleteIfNoSolution:false,//TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
+      doNotShowIfSegIsTooSmall:false, //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
+      annealingOptions:{}
+    }, //autolabel options
+
     _autoLabel:false, //to determine if autolabelling is set for this map
+
+    initialize: function (map, options) {
+      L.setOptions(this, options);
+      this._map=map;
+    },
 
     hasLayer:function(layer){
       return this._layers2label.indexOf(layer)!=-1;
@@ -26,22 +40,6 @@ var autoLabeler = function(map)
         this._layers2label.splice(ind,1);
       }
       return ind>=0;
-    },
-
-    /**
-    set global options for auto-labelling
-    */
-    setAutoLabelOptions: function (opts) {
-      this.options = opts || {};
-      this.options.showBBoxes = opts.showBBoxes ||false; //display bounding boxes around texts
-      this.options.debug = opts.debug || true; //show debug info in hte cons
-      this.options.labelsDelay = opts.labelsDelay || 1000; //a time after update event of renderer when labelling should start, if zero - errors while zooming
-      this.options.checkLabelsInside = opts.checkLabelsInside || true; //re-clip all segments to entirely fit map window without padding, disabling increases performance, but some labels maybe invisible due to padding of renderer
-      this.options.zoomToStartLabel = opts.zoomToStartLabel || 13; //if map zoom lev is below this, do not show labels
-      this.options.minimizeTotalOverlappingArea = opts.minimizeTotalOverlappingArea || false; //if true, minimize not the count of overlapping labels, but instead their total overlapping area
-      this.options.deleteIfNoSolution = opts.deleteIfNoSolution || false; //TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
-      this.options.doNotShowIfSegIsTooSmall = opts.doNotShowIfSegIsTooSmall || false; //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
-      this.options.annealingOptions = opts.annealingOptions || {};
     },
 
     /**
@@ -63,7 +61,7 @@ var autoLabeler = function(map)
         this._dodebug('renderer is invalid');
         return;
       }
-      this.setAutoLabelOptions(this.options);
+      //this.setAutoLabelOptions(this.options);
       this._map.options.renderer.on("update",this._apply_doAutoLabel);
       this._map.on("zoomstart",function(){this._zoomstarttrig=1});
       this._map.on("zoomend",function(){this._zoomstarttrig=0});
@@ -181,6 +179,10 @@ var autoLabeler = function(map)
       }
     }
   }
+)
+
+L.autoLabeler = function(map,options){
+  return new L.AutoLabeler(map,options);
 }
 
-module.exports = autoLabeler;
+// module.exports = autoLabeler;

@@ -101,9 +101,14 @@
 	  }
 	
 	  L.LayerGroup.include(AutoLabelingSupport);
-	  L.Map.addInitHook(function(){
-	    this.autoLabeler=autoLabeler(this);
-	  })
+	
+	  L.Map.addInitHook(function () {
+	          this.whenReady(function () {
+	              if (this.options.autolabel) {
+	                this.autoLabeler = L.autoLabeler(this,this.options.autolabelOptions)
+	              }
+	          });
+	      });
 	
 	})();
 
@@ -115,16 +120,30 @@
 	var DOMEssentials = __webpack_require__(2);
 	var geomEssentials = __webpack_require__(3);
 	var simulatedAnnealing = __webpack_require__(4);
-	var dataReader = __webpack_require__(5);
+	var dataReader = __webpack_require__(6);
 	
-	var autoLabeler = function(map)
-	{
-	    return {
-	    _map:map,
+	L.AutoLabeler = L.Evented.extend(
+	 {
 	    _nodes:[], //an array for storing SVG node to draw while autolabelling
 	    _layers2label:[], //an array to know which layergroups are to label
-	    options:{}, //autolabel options
+	    options:{
+	      showBBoxes:false, //display bounding boxes around texts
+	      debug:true,//show debug info in hte cons
+	      labelsDelay:1000,//a time after update event of renderer when labelling should start, if zero - errors while zooming
+	      checkLabelsInside:true,//re-clip all segments to entirely fit map window without padding, disabling increases performance, but some labels maybe invisible due to padding of renderer
+	      zoomToStartLabel:13,//if map zoom lev is below this, do not show labels
+	      minimizeTotalOverlappingArea:false, //if true, minimize not the count of overlapping labels, but instead their total overlapping area
+	      deleteIfNoSolution:false,//TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
+	      doNotShowIfSegIsTooSmall:false, //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
+	      annealingOptions:{}
+	    }, //autolabel options
+	
 	    _autoLabel:false, //to determine if autolabelling is set for this map
+	
+	    initialize: function (map, options) {
+	      L.setOptions(this, options);
+	      this._map=map;
+	    },
 	
 	    hasLayer:function(layer){
 	      return this._layers2label.indexOf(layer)!=-1;
@@ -140,22 +159,6 @@
 	        this._layers2label.splice(ind,1);
 	      }
 	      return ind>=0;
-	    },
-	
-	    /**
-	    set global options for auto-labelling
-	    */
-	    setAutoLabelOptions: function (opts) {
-	      this.options = opts || {};
-	      this.options.showBBoxes = opts.showBBoxes ||false; //display bounding boxes around texts
-	      this.options.debug = opts.debug || true; //show debug info in hte cons
-	      this.options.labelsDelay = opts.labelsDelay || 1000; //a time after update event of renderer when labelling should start, if zero - errors while zooming
-	      this.options.checkLabelsInside = opts.checkLabelsInside || true; //re-clip all segments to entirely fit map window without padding, disabling increases performance, but some labels maybe invisible due to padding of renderer
-	      this.options.zoomToStartLabel = opts.zoomToStartLabel || 13; //if map zoom lev is below this, do not show labels
-	      this.options.minimizeTotalOverlappingArea = opts.minimizeTotalOverlappingArea || false; //if true, minimize not the count of overlapping labels, but instead their total overlapping area
-	      this.options.deleteIfNoSolution = opts.deleteIfNoSolution || false; //TODO [setAutoLabelOptions] if no solution can be achieivd, delete some of the labels, which are overlapping, based on their layer al_options.priority or random if equal
-	      this.options.doNotShowIfSegIsTooSmall = opts.doNotShowIfSegIsTooSmall || false; //TODO [setAutoLabelOptions] if segment length is less then textlength of text, do not show this text
-	      this.options.annealingOptions = opts.annealingOptions || {};
 	    },
 	
 	    /**
@@ -177,7 +180,7 @@
 	        this._dodebug('renderer is invalid');
 	        return;
 	      }
-	      this.setAutoLabelOptions(this.options);
+	      //this.setAutoLabelOptions(this.options);
 	      this._map.options.renderer.on("update",this._apply_doAutoLabel);
 	      this._map.on("zoomstart",function(){this._zoomstarttrig=1});
 	      this._map.on("zoomend",function(){this._zoomstarttrig=0});
@@ -295,9 +298,13 @@
 	      }
 	    }
 	  }
+	)
+	
+	L.autoLabeler = function(map,options){
+	  return new L.AutoLabeler(map,options);
 	}
 	
-	module.exports = autoLabeler;
+	// module.exports = autoLabeler;
 
 
 /***/ },
@@ -562,7 +569,7 @@
 	'use strict';
 	
 	var geomEssentials = __webpack_require__(3);
-	var candidateGenerator = __webpack_require__(6);
+	var candidateGenerator = __webpack_require__(5);
 	
 	var simulatedAnnealing = {
 	
@@ -692,9 +699,8 @@
 	          var doReturn = function(dorender){
 	            This.dodebug('-----');
 	            if(dorender){
-	              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
-	              var t1 = performance.now();
-	              This.dodebug('time to annealing = '+(t1-t0));
+	              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);              
+	              This.dodebug('time to annealing = '+(performance.now()-t0));
 	              This.markOveralppedLabels(curset,curvalues);
 	              callback.call(context,curset);
 	            }else{
@@ -769,6 +775,100 @@
 
 /***/ },
 /* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var geomEssentials = __webpack_require__(3);
+	
+	var candidateGenerator = {
+	  obtainCandidateForPolyLine:function(seg_w_len,labelLength){
+	    if(!seg_w_len){
+	      return;
+	    }
+	    var seg = seg_w_len.seg, seglen = seg_w_len.seglen;
+	    var segStartPt = seg[0],segEndPt=seg[1];
+	    if(segStartPt.x>segEndPt.x){
+	      var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
+	    }
+	    var p2add;
+	    //now we need not let label exceed segment length. If seg is too small, the ratio shoud be zero
+	    //so, calculate ratio as following:
+	    if(labelLength>=seglen){
+	      p2add = segStartPt;
+	    }else{
+	      var discrete_seg_len = ((seglen-labelLength) / this.options.lineDiscreteStepPx);
+	      var random_pos =(Math.floor(Math.random()*discrete_seg_len)*this.options.lineDiscreteStepPx);//index of selected part of segemnt to place label
+	      var ratio = random_pos / seglen;
+	      p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
+	    }
+	    var angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
+	    return {p2add:p2add,angle:angle};
+	  },
+	
+	  obtainCandidateForPoint(point){
+	    //TODO[obtainCandidateForPoint]
+	  },
+	
+	  obtainCandidateForPoly(polygon){
+	    //TODO[obtainCandidateForPoly]
+	  },
+	
+	  /**
+	  based on https://blog.dotzero.ru/weighted-random-simple/
+	  get a random element from segments array of the item, assuming it is sorted lengths ascending order
+	  probability is higher for longer segment
+	  */
+	  getIndexBasedOnTotalLengthRandom:function(item){
+	    var random_pos = Math.random()*item.total_length; //get a position random for all segments of this polyline visible on the screen
+	    //obtain and index of segment, to which belongs this position, it is assumed tha segments are sorted by length
+	    var clen=0;
+	    for(var i=0;i<item.segs.length;i++){
+	      clen+=item.segs[i].seglen;
+	      if(clen>random_pos)break;
+	    }
+	    return i;
+	  },
+	
+	  /**
+	  computes label candidate object to place on map
+	  @param {Number} i: an index in allsegs array to obtain label for candidate and segments array wuth segments to choose
+	  @returns {Object} : an object with {t,poly,pos,a,allsegs_index} elements, such as t - text to label,poly - bounding rect of label, pos - pos to place label, a - angle to rotate label,allsegs_index - index in segments array
+	  */
+	  computeLabelCandidate:function(i,allsegs) {
+	    var t = allsegs[i].t; //label part
+	    var segs = allsegs[i].segs;
+	
+	    //choose the segment index from parts visible on screeen
+	    //here we should prioritize segments with bigger length
+	    //assuming segs array is sorted ascending using segment length
+	    var idx =this.getIndexBasedOnTotalLengthRandom(allsegs[i]);
+	    //var idx = Math.floor(Math.random()*segs.length);
+	    var poly,point_and_angle;
+	    poly = allsegs[i].t.poly;
+	
+	    switch (allsegs[i].layertype) {
+	      case 0:
+	        break;
+	      case 1:
+	        point_and_angle=this.obtainCandidateForPolyLine(segs[idx],t.poly[2][0]);
+	        break;
+	      case 2:
+	        break;
+	    }
+	
+	    if(!point_and_angle){
+	      this.dodebug('error is here');
+	    }
+	    if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
+	    poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
+	    return {t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};;
+	  },
+	}
+	
+	module.exports = candidateGenerator;
+
+
+/***/ },
+/* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -883,6 +983,7 @@
 	
 	  _getLineSegmentBoundaryPoly:function(seg){
 	    //TODO [_getLineSegmentBoundaryPoly]
+	    
 	  },
 	
 	  prepareGeneralConflictGraph:function(all_segs){
@@ -891,100 +992,6 @@
 	}
 	
 	module.exports = dataReader;
-
-
-/***/ },
-/* 6 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var geomEssentials = __webpack_require__(3);
-	
-	var candidateGenerator = {
-	  obtainCandidateForPolyLine:function(seg_w_len,labelLength){
-	    if(!seg_w_len){
-	      return;
-	    }
-	    var seg = seg_w_len.seg, seglen = seg_w_len.seglen;
-	    var segStartPt = seg[0],segEndPt=seg[1];
-	    if(segStartPt.x>segEndPt.x){
-	      var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
-	    }
-	    var p2add;
-	    //now we need not let label exceed segment length. If seg is too small, the ratio shoud be zero
-	    //so, calculate ratio as following:
-	    if(labelLength>=seglen){
-	      p2add = segStartPt;
-	    }else{
-	      var discrete_seg_len = ((seglen-labelLength) / this.options.lineDiscreteStepPx);
-	      var random_pos =(Math.floor(Math.random()*discrete_seg_len)*this.options.lineDiscreteStepPx);//index of selected part of segemnt to place label
-	      var ratio = random_pos / seglen;
-	      p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
-	    }
-	    var angle = geomEssentials.computeAngle(segStartPt,segEndPt); //get its rotation around lower-left corner of BBox
-	    return {p2add:p2add,angle:angle};
-	  },
-	
-	  obtainCandidateForPoint(point){
-	    //TODO[obtainCandidateForPoint]
-	  },
-	
-	  obtainCandidateForPoly(polygon){
-	    //TODO[obtainCandidateForPoly]
-	  },
-	
-	  /**
-	  based on https://blog.dotzero.ru/weighted-random-simple/
-	  get a random element from segments array of the item, assuming it is sorted lengths ascending order
-	  probability is higher for longer segment
-	  */
-	  getIndexBasedOnTotalLengthRandom:function(item){
-	    var random_pos = Math.random()*item.total_length; //get a position random for all segments of this polyline visible on the screen
-	    //obtain and index of segment, to which belongs this position, it is assumed tha segments are sorted by length
-	    var clen=0;
-	    for(var i=0;i<item.segs.length;i++){
-	      clen+=item.segs[i].seglen;
-	      if(clen>random_pos)break;
-	    }
-	    return i;
-	  },
-	
-	  /**
-	  computes label candidate object to place on map
-	  @param {Number} i: an index in allsegs array to obtain label for candidate and segments array wuth segments to choose
-	  @returns {Object} : an object with {t,poly,pos,a,allsegs_index} elements, such as t - text to label,poly - bounding rect of label, pos - pos to place label, a - angle to rotate label,allsegs_index - index in segments array
-	  */
-	  computeLabelCandidate:function(i,allsegs) {
-	    var t = allsegs[i].t; //label part
-	    var segs = allsegs[i].segs;
-	
-	    //choose the segment index from parts visible on screeen
-	    //here we should prioritize segments with bigger length
-	    //assuming segs array is sorted ascending using segment length
-	    var idx =this.getIndexBasedOnTotalLengthRandom(allsegs[i]);
-	    //var idx = Math.floor(Math.random()*segs.length);
-	    var poly,point_and_angle;
-	    poly = allsegs[i].t.poly;
-	
-	    switch (allsegs[i].layertype) {
-	      case 0:
-	        break;
-	      case 1:
-	        point_and_angle=this.obtainCandidateForPolyLine(segs[idx],t.poly[2][0]);
-	        break;
-	      case 2:
-	        break;
-	    }
-	
-	    if(!point_and_angle){
-	      this.dodebug('error is here');
-	    }
-	    if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
-	    poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
-	    return {t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};;
-	  },
-	}
-	
-	module.exports = candidateGenerator;
 
 
 /***/ }

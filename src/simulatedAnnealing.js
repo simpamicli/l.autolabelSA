@@ -131,9 +131,8 @@ var simulatedAnnealing = {
           var doReturn = function(dorender){
             This.dodebug('-----');
             if(dorender){
-              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
-              var t1 = performance.now();
-              This.dodebug('time to annealing = '+(t1-t0));
+              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);              
+              This.dodebug('time to annealing = '+(performance.now()-t0));
               This.markOveralppedLabels(curset,curvalues);
               callback.call(context,curset);
             }else{

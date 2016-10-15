@@ -55,8 +55,13 @@
   }
 
   L.LayerGroup.include(AutoLabelingSupport);
-  L.Map.addInitHook(function(){
-    this.autoLabeler=autoLabeler(this);
-  })
+
+  L.Map.addInitHook(function () {
+          this.whenReady(function () {
+              if (this.options.autolabel) {
+                this.autoLabeler = L.autoLabeler(this,this.options.autolabelOptions)
+              }
+          });
+      });
 
 })();

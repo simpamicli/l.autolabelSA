@@ -110,6 +110,7 @@ var dataReader = {
 
   _getLineSegmentBoundaryPoly:function(seg){
     //TODO [_getLineSegmentBoundaryPoly]
+    
   },
 
   prepareGeneralConflictGraph:function(all_segs){
