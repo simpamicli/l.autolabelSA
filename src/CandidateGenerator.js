@@ -6,7 +6,7 @@ var candidateGenerator = {
   },
 
   _aquireCandidateDataLine:function(segobj,position_on_seg){
-    var seg = segobj.seg;
+    var seg = segobj.seg.slice(0);
     var segStartPt = seg[0],segEndPt=seg[1];
     if(segStartPt.x>segEndPt.x){
       var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
@@ -92,18 +92,69 @@ var candidateGenerator = {
   */
   computeComplexPolyForLine:function(start_offset,item){
     var idxNdistStart = this._getSegmentIdxAndDistByOffset(start_offset,item);
-    var labelLength = item.t.poly[2][0], labelHeight = -item.t.poly[1][1],
+    var labelLength = item.t.poly[2][0], labelHeight = Math.abs(item.t.poly[1][1]),
         segStart = item.segs[idxNdistStart.index],
-        posStart = segStart.seglen - (idxNdistStart.dist - start_offset);
-        poly = this._aquireCandidateDataLine(segStart,posStart);
+        labelSpaceOnFirstSegment = (idxNdistStart.dist - start_offset);
 
-    if(idxNdistStart.dist - start_offset < labelLength && idxNdistStart.index<(item.segs.length-1)){
+    //TODO [computeComplexPolyForLine] check left-to-right text orientation on final polygone!
+    var getAboveLine = function(seg,offset,len,height){ //compute above line according to remained length on this segment
+      var actual_len = Math.min(len,seg.seglen-offset);
+      var normal = geomEssentials.getNormalOnSegment(seg).multiplyBy(height);
+      var firstPt = geomEssentials.interpolateOnPointSegment(seg.seg[0],seg.seg[1],offset/seg.seglen).add(normal);
+      var endPt = geomEssentials.interpolateOnPointSegment(seg.seg[0],seg.seg[1],(offset+actual_len)/seg.seglen).add(normal);
+      return {line:[firstPt,endPt],minusLen:actual_len};
+    }
+
+    //in the next lines we construct upper boundary of total polygone - lower is polyline actually =)
+    //now fill above lines
+    var above_line = [getAboveLine(segStart,segStart.seglen -  labelSpaceOnFirstSegment,labelLength,labelHeight)];
+    var above_lines = [above_line.line];
+    var finishOnLineBelow = above_line.line[1];
+    var remaining_length = labelLength-above_line.minusLen;
+    //if we have more than 1 segment to cover:
+    if(labelSpaceOnFirstSegment < labelLength && idxNdistStart.index<(item.segs.length-1)){
       var idxNdisEnd = this._getSegmentIdxAndDistByOffset(start_offset+labelLength,item);
-      var remaining_length = labelLength-segStart.seglen;
-      for(var i=idxNdistStart.index+1;i<=idxNdisEnd.index;i++){
-        //TODO [computeComplexPolyForLine]
+      for(var i=idxNdistStart.index+1;i<=idxNdisEnd.index;i++)if(remaining_length>0){
+        var temp_line = [getAboveLine(item.segs[i],0,remaining_length,labelHeight)];
+        above_lines.push(temp_line.line);
+        remaining_length-=temp_line.minusLen;
+        finishOnLineBelow=temp_line.line[1];
       }
     }
+
+    //if we have some unsused length
+    //TODO [computeComplexPolyForLine] check if it is draw actually, so no add to polyline part (below)
+    if(remaining_length>0){
+      var last_segment_expanded = geomEssentials.expandSegment(above_lines.pop(),remaining_length);
+      above_lines.push(last_segment_expanded);
+    }
+
+    var TINY = 1; //beacouse 1px is tiny on screen
+    var poly=[geomEssentials.interpolateOnPointSegment(segStart.seg[0],segStart.seg[1],(segStart.seglen -  labelSpaceOnFirstSegment)/segStart.seglen)]; // a result! init with first point on polyline
+    poly.push(above_lines[0][0]);
+    //expand / slice lines to have a continius boundary above
+    for(var j=1;j< above_lines.length;j++){
+      var endOfPrev = above_lines[j-1][1];
+      var startOfThis =  above_lines[j][0];
+      if(startOfThis.distanceTo(endOfPrev)>TINY){
+        //add middle line
+      }else{
+        poly.push(endOfPrev);
+      }
+    }
+
+    //push last vertex of above;
+    poly.push(above_lines[j][1]);
+
+    //now add polyline pts, in reverse order
+    poly.push(finishOnLineBelow);
+    if(idxNdisEnd){ //more than 1 seg
+      for(var k=idxNdisEnd.index;k>idxNdistStart.index;k--){
+        poly.push(item.segs[k].seg[0]);
+      }
+    }
+    //now compute poly from below and above boundary
+
     return poly; //starting with insertion point on the line
   },
   /**

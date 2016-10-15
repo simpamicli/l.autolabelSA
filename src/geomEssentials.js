@@ -104,6 +104,31 @@ var geomEssentials = {
 
   /**
   code from L.GeometryUtil plugin
+       Returns slope (Ax+B) between two points.
+        @param {L.Point} a
+        @param {L.Point} b
+        @returns {Object} with ``a`` and ``b`` properties.
+     */
+  computeSlope: function(a, b) {
+      var s = (b.y - a.y) / (b.x - a.x),
+          o = a.y - (s * a.x);
+      return {a: s, b: o};
+  },
+
+  getNormalOnSegment:function(segment){
+    var slope = this.computeSlope(segment.seg[0],segment.seg[1]);
+    return this.normalizePt(slope);
+  },
+
+  get2dVectorLength:function(pt){
+    return Math.sqrt(pt.x*pt.x + pt.y*pt.y);
+  },
+
+  normalizePt:function(pt){
+    return (pt.x===0&&pt.y===0)?0:pt.divideBy(this.get2dVectorLength(pt));
+  },
+  /**
+  code from L.GeometryUtil plugin
   @memberof geomEssentials#
   */
   interpolateOnPointSegment: function (pA, pB, ratio) {
@@ -111,6 +136,33 @@ var geomEssentials = {
           (pA.x * (1 - ratio)) + (ratio * pB.x),
           (pA.y * (1 - ratio)) + (ratio * pB.y)
       );
+  },
+
+  /**
+  computes a point where two lines intersection
+  @param {Array} seg1: a first line defined by two points
+  @param {Array} seg2: a second line defined by two points
+  @return {L.Point} :intersection point or null if lines are parallel to each other
+  */
+  lineIntersection:function(seg1,seg2){
+    var slope1=this.computeSlope(seg1[0],seg1[1]);
+    var slope2=this.computeSlope(seg2[0],seg2[1]);
+    if(slope1.x===slope2.x)return;
+    var x = (slope2.y - slope1.y) / (slope11.x - slope2.x);
+    var y = slope1.x*x + slope1.y;
+    return L.point(x,y);
+  },
+
+  /**
+  expangs a segment withing length in direction from seg[0] to seg[1]
+  @param {Array} segment: a segment defined by two points
+  @param {Number} length:how much increase segment len, should be positive
+  @return {Array} : expanded segment
+  */
+  expandSegment:function(segment,segment_length,length){
+    var res=segment.slice(0);
+    if(length<0)return res;
+    return this.interpolateOnPointSegment(segment[0],segment[1],(length + segment_length)/segment_length);
   },
 
   /**
@@ -180,6 +232,7 @@ var geomEssentials = {
 
   /**
   code from http://www.codeproject.com/Articles/13467/A-JavaScript-Implementation-of-the-Surveyor-s-Form
+  for single polygon only, and no holes in
   @param {Array} poly: a poly to determine area of
   @memberof geomEssentials#
   */
