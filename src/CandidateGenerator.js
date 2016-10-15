@@ -99,10 +99,9 @@ var candidateGenerator = {
 
     if(idxNdistStart.dist - start_offset < labelLength && idxNdistStart.index<(item.segs.length-1)){
       var idxNdisEnd = this._getSegmentIdxAndDistByOffset(start_offset+labelLength,item);
-      var remaining_length = labelLength;
+      var remaining_length = labelLength-segStart.seglen;
       for(var i=idxNdistStart.index+1;i<=idxNdisEnd.index;i++){
-        //TODO [computeComplexPolyForLine] construct a new poly by adding
-        var temp_poly = geomEssentials.createPoly()
+        //TODO [computeComplexPolyForLine]
       }
     }
     return poly; //starting with insertion point on the line

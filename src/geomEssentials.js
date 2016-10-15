@@ -1,6 +1,9 @@
 //a class to perfrom geometric stuff
 /** @namespace geomEssentials*/
 'use strict';
+
+var greinerHormann = require('./third_party/GreinerHormann');
+
 var geomEssentials = {
 
   /**
@@ -117,7 +120,7 @@ var geomEssentials = {
   @returns {Array} : result poly
   @memberof geomEssentials#
   */
-  clipPoly:function(subjectPolygon, clipPolygon) {
+  clipPoly2:function(subjectPolygon, clipPolygon) {
     var cp1, cp2, s, e;
     var inside = function (p) {
         return (cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0]);
@@ -155,6 +158,26 @@ var geomEssentials = {
     return outputList
   },
 
+  clipPoly:function(poly1,poly2){
+    var intersection = greinerHormann.intersection(poly1, poly2);
+    if(!intersection)return [];
+    if(intersection.length>0)return intersection[0];
+  },
+
+  /**
+  returns a combined poly from two
+  */
+  addPoly:function(poly1,poly2){
+    var union = greinerHormann.union(poly1, poly2);
+    if(!union)return [];
+    if(union.length>0)return union[0];
+  },
+
+  subtractPoly:function(poly1,poly2){
+    var diff = greinerHormann.diff(poly1, poly2);
+    if(!diff)return [];else return diff;
+  },
+
   /**
   code from http://www.codeproject.com/Articles/13467/A-JavaScript-Implementation-of-the-Surveyor-s-Form
   @param {Array} poly: a poly to determine area of
@@ -168,7 +191,7 @@ var geomEssentials = {
     if(poly){
       var poly=poly.slice(0);
       if(poly.length>2)poly.push(poly[0]); //close the poly
-      for( k = 0; k < poly.length-1; k++ ) {
+      for(var k = 0; k < poly.length-1; k++ ) {
           var xDiff = poly[k+1][0] - poly[k][0];
           var yDiff = poly[k+1][1] - poly[k][1];
           area += + poly[k][0] * yDiff - poly[k][1] * xDiff;
