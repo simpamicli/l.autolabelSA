@@ -39,16 +39,60 @@ module.exports = {
       basic_item.segdata=[];
       basic_item.totalLength=0;
       basic_item.getSegment = function(index){
-        var a = this.data[index-1], b = this.data[index];
-        return [a,b,this.segdata[index-1]];
+        var a = this.data[index], b = this.data[index+1];
+        return [a,b,this.segdata[index]];
+      }
+      basic_item.segCount = function(){
+        return this.segdata.length;
+      }
+
+      /**
+      Get a segment from polyline part by it's offset
+      @param {Number} offset: na offset for the polyline
+      @param {labelItem} item: item
+      @returns {Object} : index of segment and dist which is offset from start of the line to the end of found segment
+      */
+      basic_item.getSegmentIdxAndDistByOffset=function(offset){
+        cdist=0;
+        for(var i=0;i<this.segCount();i++){
+          cdist+=this.getSegment(i)[2];
+          if(offset<cdist){
+            return {index:i,dist:cdist};
+          }
+        }
+        return {index:i,dist:cdist};
+      }
+
+      /**
+      based on https://blog.dotzero.ru/weighted-random-simple/
+      get a random element from segments array of the item, assuming it is sorted lengths ascending order
+      probability is higher for longer segment
+      */
+      basic_item.getIndexBasedOnTotalLengthRandom=function(){
+        var random_pos = Math.random()*this.totalLength; //get a position random for all segments of this polyline visible on the screen
+        //obtain and index of segment, to which belongs this position, it is assumed tha segments are sorted by length
+        var clen=0;
+        for(var i=0;i<this.segCount();i++){
+          clen+=this.segdata[i].seglen;
+          if(clen>random_pos)break;
+        }
+        return i;
       }
     }
     return basic_item;
   },
-  resItem:function(item_ind,offset_or_origin){
+  candidatePosition:function(offset_or_origin,item){
     return {
-      item_ind:item_ind,
-      offset_or_origin:offset_or_origin
+      item:item,
+      offset_or_origin:offset_or_origin,
+      _poly:false,
+      _computePoly:function(){
+        //TODO [_computePoly] depending on item type, compute polygon to check in annealing for this offset_or_origin
+      },
+      poly:function(){
+        if(!this._poly)this._computePoly();
+        return this._poly;
+      }
     }
   },
 

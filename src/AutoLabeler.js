@@ -61,7 +61,6 @@ L.AutoLabeler = L.Evented.extend(
         this._dodebug('renderer is invalid');
         return;
       }
-      //this.setAutoLabelOptions(this.options);
       this._map.options.renderer.on("update",this._apply_doAutoLabel);
       this._map.on("zoomstart",function(){this._zoomstarttrig=1});
       this._map.on("zoomend",function(){this._zoomstarttrig=0});
@@ -99,7 +98,6 @@ L.AutoLabeler = L.Evented.extend(
       if(this.options.debug)console.log(message);
     },
 
-
     /**
     this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
     */
@@ -108,17 +106,12 @@ L.AutoLabeler = L.Evented.extend(
       if(this._map.getZoom()>this.options.zoomToStartLabel){
         dataReader._map=this._map;
         var pt  =dataReader.readDataToLabel(this._map) //array for storing paths and values
-        var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:80});
-        if(allsegs.length==0){
+        var all_items=dataReader.prepareCurSegments(pt,{maxlabelcount:80});
+        if(all_items.length==0){
           this._clearNodes();
           return;
         }
-        // simulatedAnnealing.processOptions({});
-        // var curset = simulatedAnnealing.getInitialRandomState(allsegs);
-        // var curvalues = simulatedAnnealing.evaluateCurSet(curset);
-        // simulatedAnnealing.markOveralppedLabels(curset,curvalues);
-        // this._renderNodes(curset);
-        simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
+        simulatedAnnealing.perform(all_items,this.options.annealingOptions,this._renderNodes,this);
       }else{
         this._clearNodes();
       }
@@ -155,6 +148,7 @@ L.AutoLabeler = L.Evented.extend(
 
     /**
     renders computed labelset on the screen via svg
+    TODO [_renderNodes] place textOnPath
     */
     _renderNodes:function(labelset){
       var svg =  this._map.options.renderer._container;  //to work with SVG

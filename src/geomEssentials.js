@@ -7,28 +7,8 @@ var greinerHormann = require('./third_party/GreinerHormann');
 var geomEssentials = {
 
   /**
-  code from leaflet src, without some lines
-  we assume here, that clipPoints was already invoked
+  makes x and y integer
   */
-  clipClippedPoints: function (layer_parts,bounds) {
-    var parts = [], i, j, k=0,len, len2, segment,points;
-    for (i = 0, k = 0, len = layer_parts.length; i < len; i++) {
-			points = layer_parts[i];
-  		for (j = 0, len2 = points.length; j < len2 - 1; j++) {
-  			segment = L.LineUtil.clipSegment(points[j], points[j + 1], bounds, j, true);
-  			if (!segment) { continue; }
-  			parts[k] = parts[k] || [];
-  			parts[k].push(segment[0]);
-  			// if segment goes out of screen, or it's the last one, it's the end of the line part
-  			if ((segment[1] !== points[j + 1]) || (j === len2 - 2)) {
-  				parts[k].push(segment[1]);
-  				k++;
-  			}
-  		}
-    }
-    return parts;
-	},
-
   roundPoint:function(p){
     var res= L.point(Math.round(p.x),Math.round(p.y));
     return res;
@@ -57,6 +37,7 @@ var geomEssentials = {
     return this.scaleBounds(bounds,scaleafter);
     //return bounds;
   },
+
   /**
   moves a poly by adding pt2add point to all its vertices
   @param {Array} poly: a poly to movePoly
@@ -116,7 +97,7 @@ var geomEssentials = {
   },
 
   getNormalOnSegment:function(segment){
-    var slope = this.computeSlope(segment.seg[0],segment.seg[1]);
+    var slope = this.computeSlope(segment[0],segment[1]);
     return this.normalizePt(slope);
   },
 
@@ -127,6 +108,7 @@ var geomEssentials = {
   normalizePt:function(pt){
     return (pt.x===0&&pt.y===0)?0:pt.divideBy(this.get2dVectorLength(pt));
   },
+
   /**
   code from L.GeometryUtil plugin
   @memberof geomEssentials#
@@ -159,55 +141,12 @@ var geomEssentials = {
   @param {Number} length:how much increase segment len, should be positive
   @return {Array} : expanded segment
   */
-  expandSegment:function(segment,segment_length,length){
+  expandSegment:function(segment,length){
     var res=segment.slice(0);
-    if(length<0)return res;
-    return this.interpolateOnPointSegment(segment[0],segment[1],(length + segment_length)/segment_length);
-  },
-
-  /**
-  function from https://rosettacode.org/wiki/Sutherland-Hodgman_polygon_clipping#JavaScript
-  @param {Array} subjectPolygon: first poly
-  @param {Array} clipPolygon: second poly
-  @returns {Array} : result poly
-  @memberof geomEssentials#
-  */
-  clipPoly2:function(subjectPolygon, clipPolygon) {
-    var cp1, cp2, s, e;
-    var inside = function (p) {
-        return (cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0]);
-    };
-    var intersection = function () {
-        var dc = [ cp1[0] - cp2[0], cp1[1] - cp2[1] ],
-            dp = [ s[0] - e[0], s[1] - e[1] ],
-            n1 = cp1[0] * cp2[1] - cp1[1] * cp2[0],
-            n2 = s[0] * e[1] - s[1] * e[0],
-            n3 = 1.0 / (dc[0] * dp[1] - dc[1] * dp[0]);
-        return [(n1*dp[0] - n2*dc[0]) * n3, (n1*dp[1] - n2*dc[1]) * n3];
-    };
-    var outputList = subjectPolygon;
-    cp1 = clipPolygon[clipPolygon.length-1];
-    for (var j in clipPolygon) {
-        var cp2 = clipPolygon[j];
-        var inputList = outputList;
-        outputList = [];
-        s = inputList[inputList.length - 1]; //last on the input list
-        for (var i in inputList) {
-            var e = inputList[i];
-            if (inside(e)) {
-                if (!inside(s)) {
-                    outputList.push(intersection());
-                }
-                outputList.push(e);
-            }
-            else if (inside(s)) {
-                outputList.push(intersection());
-            }
-            s = e;
-        }
-        cp1 = cp2;
+    if(length>0){
+      res[1]=this.interpolateOnPointSegment(segment[0],segment[1],(length + segment[2].seglen)/segment[2].seglen);
     }
-    return outputList
+    return res;
   },
 
   clipPoly:function(poly1,poly2){

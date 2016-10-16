@@ -180,7 +180,6 @@
 	        this._dodebug('renderer is invalid');
 	        return;
 	      }
-	      //this.setAutoLabelOptions(this.options);
 	      this._map.options.renderer.on("update",this._apply_doAutoLabel);
 	      this._map.on("zoomstart",function(){this._zoomstarttrig=1});
 	      this._map.on("zoomend",function(){this._zoomstarttrig=0});
@@ -218,7 +217,6 @@
 	      if(this.options.debug)console.log(message);
 	    },
 	
-	
 	    /**
 	    this function obtains visible polyline segments from screen and computes optimal positions and draws labels on map
 	    */
@@ -227,17 +225,12 @@
 	      if(this._map.getZoom()>this.options.zoomToStartLabel){
 	        dataReader._map=this._map;
 	        var pt  =dataReader.readDataToLabel(this._map) //array for storing paths and values
-	        var allsegs=dataReader.prepareCurSegments(pt,{maxlabelcount:80});
-	        if(allsegs.length==0){
+	        var all_items=dataReader.prepareCurSegments(pt,{maxlabelcount:80});
+	        if(all_items.length==0){
 	          this._clearNodes();
 	          return;
 	        }
-	        // simulatedAnnealing.processOptions({});
-	        // var curset = simulatedAnnealing.getInitialRandomState(allsegs);
-	        // var curvalues = simulatedAnnealing.evaluateCurSet(curset);
-	        // simulatedAnnealing.markOveralppedLabels(curset,curvalues);
-	        // this._renderNodes(curset);
-	        simulatedAnnealing.perform(allsegs,this.options.annealingOptions,this._renderNodes,this);
+	        simulatedAnnealing.perform(all_items,this.options.annealingOptions,this._renderNodes,this);
 	      }else{
 	        this._clearNodes();
 	      }
@@ -274,6 +267,7 @@
 	
 	    /**
 	    renders computed labelset on the screen via svg
+	    TODO [_renderNodes] place textOnPath
 	    */
 	    _renderNodes:function(labelset){
 	      var svg =  this._map.options.renderer._container;  //to work with SVG
@@ -378,28 +372,8 @@
 	var geomEssentials = {
 	
 	  /**
-	  code from leaflet src, without some lines
-	  we assume here, that clipPoints was already invoked
+	  makes x and y integer
 	  */
-	  clipClippedPoints: function (layer_parts,bounds) {
-	    var parts = [], i, j, k=0,len, len2, segment,points;
-	    for (i = 0, k = 0, len = layer_parts.length; i < len; i++) {
-				points = layer_parts[i];
-	  		for (j = 0, len2 = points.length; j < len2 - 1; j++) {
-	  			segment = L.LineUtil.clipSegment(points[j], points[j + 1], bounds, j, true);
-	  			if (!segment) { continue; }
-	  			parts[k] = parts[k] || [];
-	  			parts[k].push(segment[0]);
-	  			// if segment goes out of screen, or it's the last one, it's the end of the line part
-	  			if ((segment[1] !== points[j + 1]) || (j === len2 - 2)) {
-	  				parts[k].push(segment[1]);
-	  				k++;
-	  			}
-	  		}
-	    }
-	    return parts;
-		},
-	
 	  roundPoint:function(p){
 	    var res= L.point(Math.round(p.x),Math.round(p.y));
 	    return res;
@@ -428,6 +402,7 @@
 	    return this.scaleBounds(bounds,scaleafter);
 	    //return bounds;
 	  },
+	
 	  /**
 	  moves a poly by adding pt2add point to all its vertices
 	  @param {Array} poly: a poly to movePoly
@@ -487,7 +462,7 @@
 	  },
 	
 	  getNormalOnSegment:function(segment){
-	    var slope = this.computeSlope(segment.seg[0],segment.seg[1]);
+	    var slope = this.computeSlope(segment[0],segment[1]);
 	    return this.normalizePt(slope);
 	  },
 	
@@ -498,6 +473,7 @@
 	  normalizePt:function(pt){
 	    return (pt.x===0&&pt.y===0)?0:pt.divideBy(this.get2dVectorLength(pt));
 	  },
+	
 	  /**
 	  code from L.GeometryUtil plugin
 	  @memberof geomEssentials#
@@ -530,55 +506,12 @@
 	  @param {Number} length:how much increase segment len, should be positive
 	  @return {Array} : expanded segment
 	  */
-	  expandSegment:function(segment,segment_length,length){
+	  expandSegment:function(segment,length){
 	    var res=segment.slice(0);
-	    if(length<0)return res;
-	    return this.interpolateOnPointSegment(segment[0],segment[1],(length + segment_length)/segment_length);
-	  },
-	
-	  /**
-	  function from https://rosettacode.org/wiki/Sutherland-Hodgman_polygon_clipping#JavaScript
-	  @param {Array} subjectPolygon: first poly
-	  @param {Array} clipPolygon: second poly
-	  @returns {Array} : result poly
-	  @memberof geomEssentials#
-	  */
-	  clipPoly2:function(subjectPolygon, clipPolygon) {
-	    var cp1, cp2, s, e;
-	    var inside = function (p) {
-	        return (cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0]);
-	    };
-	    var intersection = function () {
-	        var dc = [ cp1[0] - cp2[0], cp1[1] - cp2[1] ],
-	            dp = [ s[0] - e[0], s[1] - e[1] ],
-	            n1 = cp1[0] * cp2[1] - cp1[1] * cp2[0],
-	            n2 = s[0] * e[1] - s[1] * e[0],
-	            n3 = 1.0 / (dc[0] * dp[1] - dc[1] * dp[0]);
-	        return [(n1*dp[0] - n2*dc[0]) * n3, (n1*dp[1] - n2*dc[1]) * n3];
-	    };
-	    var outputList = subjectPolygon;
-	    cp1 = clipPolygon[clipPolygon.length-1];
-	    for (var j in clipPolygon) {
-	        var cp2 = clipPolygon[j];
-	        var inputList = outputList;
-	        outputList = [];
-	        s = inputList[inputList.length - 1]; //last on the input list
-	        for (var i in inputList) {
-	            var e = inputList[i];
-	            if (inside(e)) {
-	                if (!inside(s)) {
-	                    outputList.push(intersection());
-	                }
-	                outputList.push(e);
-	            }
-	            else if (inside(s)) {
-	                outputList.push(intersection());
-	            }
-	            s = e;
-	        }
-	        cp1 = cp2;
+	    if(length>0){
+	      res[1]=this.interpolateOnPointSegment(segment[0],segment[1],(length + segment[2].seglen)/segment[2].seglen);
 	    }
-	    return outputList
+	    return res;
 	  },
 	
 	  clipPoly:function(poly1,poly2){
@@ -1503,31 +1436,6 @@
 	    lineDiscreteStepPx:3
 	  },
 	
-	  _aquireCandidateDataLine:function(segobj,position_on_seg){
-	    var seg = segobj.seg.slice(0);
-	    var segStartPt = seg[0],segEndPt=seg[1];
-	    if(segStartPt.x>segEndPt.x){
-	      var tmp=segStartPt; segStartPt=segEndPt; segEndPt=tmp; //be sure that text is always left-to-right
-	    }
-	    var ratio = position_on_seg / segobj.seglen;
-	    var p2add = geomEssentials.interpolateOnPointSegment(segStartPt,segEndPt,ratio); //get actual insertion point for label
-	    return {p2add:p2add,angle:segobj.angle};
-	  },
-	
-	  obtainCandidateForPolyLineBySegmentIndex:function(seg_w_len,labelLength){
-	    if(!seg_w_len){
-	      return;
-	    }
-	    var seg = seg_w_len.seg, seglen = seg_w_len.seglen, pos = 0;
-	    //now we need not let label exceed segment length. If seg is too small, the ratio shoud be zero
-	    //so, calculate ratio as following:
-	    if(labelLength<seglen){
-	      var discrete_seg_len = ((seglen-labelLength) / this.options.lineDiscreteStepPx);
-	      pos =(Math.floor(Math.random()*discrete_seg_len)*this.options.lineDiscreteStepPx);//index of selected part of segemnt to place label
-	    }
-	    return this._aquireCandidateDataLine(seg_w_len,pos);
-	  },
-	
 	  obtainCandidateForPoint(point){
 	    //TODO[obtainCandidateForPoint]
 	  },
@@ -1537,49 +1445,14 @@
 	  },
 	
 	  /**
-	  based on https://blog.dotzero.ru/weighted-random-simple/
-	  get a random element from segments array of the item, assuming it is sorted lengths ascending order
-	  probability is higher for longer segment
-	  */
-	  getIndexBasedOnTotalLengthRandom:function(item){
-	    var random_pos = Math.random()*item.total_length; //get a position random for all segments of this polyline visible on the screen
-	    //obtain and index of segment, to which belongs this position, it is assumed tha segments are sorted by length
-	    var clen=0;
-	    for(var i=0;i<item.segs.length;i++){
-	      clen+=item.segs[i].seglen;
-	      if(clen>random_pos)break;
-	    }
-	    return i;
-	  },
-	
-	  /**
-	  Get a segment from polyline part by it's offset
-	  @param {Number} offset: na offset for the polyline
-	  @param {Object} item: item from prepareCurSegments's allsegs
-	  @returns {Object} : index of segment and dist which is offset from start of the line to the end of found segment
-	  */
-	  _getSegmentIdxAndDistByOffset:function(offset,item){
-	    cdist=0;
-	    for(var i in item.segs){
-	      cdist+=item.segs[i].seglen;
-	      if(offset<cdist){
-	        return {index:i,dist:cdist};
-	      }
-	    }
-	    return {index:i,dist:cdist};
-	  },
-	
-	  /**
 	  Get a poly (simple with no text along path)for random offset on the polyline
 	  @param {Object} item: item from prepareCurSegments's allsegs
 	  @returns {Array} : a poly bounding text, placed on corresponding point for offset on poluline and rotated to match segment's skew
 	  */
 	  obtainCandidateForPolyLineByRandomStartOffset:function(item){
-	    var random_offset = item.total_length*Math.random(),
-	        idxNdist = this._getSegmentIdxAndDistByOffset(random_offset,item),
-	        seg = item.segs[idxNdist.index],
-	        pos = seg.seglen - (idxNdist.dist - random_offset);
-	    return this._aquireCandidateDataLine(seg,pos);
+	    var random_offset = item.totalLength*Math.random();
+	    var candidate = itemFactory.candidatePosition(random_offset,item);
+	    return candidate;
 	  },
 	
 	  /**
@@ -1587,6 +1460,7 @@
 	  @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
 	  @param {Object} item: item from prepareCurSegments's allsegs
 	  @returns {Array} : a poly bounding curved text
+	  TODO [computeComplexPolyForLine] rewrite for new notation
 	  */
 	  computeComplexPolyForLine:function(start_offset,item){
 	    var idxNdistStart = this._getSegmentIdxAndDistByOffset(start_offset,item);
@@ -1657,38 +1531,22 @@
 	  },
 	  /**
 	  computes label candidate object to place on map
-	  @param {Number} i: an index in allsegs array to obtain label for candidate and segments array wuth segments to choose
-	  @returns {Object} : an object with {t,poly,pos,a,allsegs_index} elements, such as t - text to label,poly - bounding rect of label, pos - pos to place label, a - angle to rotate label,allsegs_index - index in segments array
+	  @param {Number} i: an index in all_items array to obtain label candidate for i-item
+	  @returns {candidatePosition} : generated candidate
 	  */
 	  computeLabelCandidate:function(i,all_items) {
-	    var t = all_items[i].t; //label part
-	    var segs = all_items[i].segs;
-	
-	    //choose the segment index from parts visible on screeen
-	    //here we should prioritize segments with bigger length
-	    //assuming segs array is sorted ascending using segment length
-	    //var idx =this.getIndexBasedOnTotalLengthRandom(all_items[i]);
-	    var idx = Math.floor(Math.random()*segs.length);
-	    var poly,point_and_angle;
-	    poly = all_items[i].t.poly;
-	
+	    var candidate;
 	    switch (all_items[i].layertype) {
 	      case 0:
 	        break;
-	      case 1:
-	        point_and_angle=this.obtainCandidateForPolyLineByRandomStartOffset(all_items[i]);
-	        // point_and_angle=this.obtainCandidateForPolyLineBySegmentIndex(segs[idx],t.poly[2][0]);
-	        break;
+	      case 1:{
+	          candidate=this.obtainCandidateForPolyLineByRandomStartOffset(all_items[i]);
+	          break;
+	        }
 	      case 2:
 	        break;
 	    }
-	
-	    if(!point_and_angle){
-	      this.dodebug('error is here');
-	    }
-	    if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
-	    poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
-	    return {t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,all_items_index:i};;
+	    return candidate;
 	  },
 	}
 	
@@ -1839,16 +1697,60 @@
 	      basic_item.segdata=[];
 	      basic_item.totalLength=0;
 	      basic_item.getSegment = function(index){
-	        var a = this.data[index-1], b = this.data[index];
-	        return [a,b,this.segdata[index-1]];
+	        var a = this.data[index], b = this.data[index+1];
+	        return [a,b,this.segdata[index]];
+	      }
+	      basic_item.segCount = function(){
+	        return this.segdata.length;
+	      }
+	
+	      /**
+	      Get a segment from polyline part by it's offset
+	      @param {Number} offset: na offset for the polyline
+	      @param {labelItem} item: item
+	      @returns {Object} : index of segment and dist which is offset from start of the line to the end of found segment
+	      */
+	      basic_item.getSegmentIdxAndDistByOffset=function(offset){
+	        cdist=0;
+	        for(var i=0;i<this.segCount();i++){
+	          cdist+=this.getSegment(i)[2];
+	          if(offset<cdist){
+	            return {index:i,dist:cdist};
+	          }
+	        }
+	        return {index:i,dist:cdist};
+	      }
+	
+	      /**
+	      based on https://blog.dotzero.ru/weighted-random-simple/
+	      get a random element from segments array of the item, assuming it is sorted lengths ascending order
+	      probability is higher for longer segment
+	      */
+	      basic_item.getIndexBasedOnTotalLengthRandom=function(){
+	        var random_pos = Math.random()*this.totalLength; //get a position random for all segments of this polyline visible on the screen
+	        //obtain and index of segment, to which belongs this position, it is assumed tha segments are sorted by length
+	        var clen=0;
+	        for(var i=0;i<this.segCount();i++){
+	          clen+=this.segdata[i].seglen;
+	          if(clen>random_pos)break;
+	        }
+	        return i;
 	      }
 	    }
 	    return basic_item;
 	  },
-	  resItem:function(item_ind,offset_or_origin){
+	  candidatePosition:function(offset_or_origin,item){
 	    return {
-	      item_ind:item_ind,
-	      offset_or_origin:offset_or_origin
+	      item:item,
+	      offset_or_origin:offset_or_origin,
+	      _poly:false,
+	      _computePoly:function(){
+	        //TODO [_computePoly] depending on item type, compute polygon to check in annealing for this offset_or_origin
+	      },
+	      poly:function(){
+	        if(!this._poly)this._computePoly();
+	        return this._poly;
+	      }
 	    }
 	  },
 	
