@@ -1720,15 +1720,14 @@
 	      for(var i in this._map.autoLabeler._layers2label)
 	      if(this._map.getZoom()>this._map.autoLabeler._layers2label[i]._al_options.zoomToStartLabel)
 	      {
-	        var lg=this._map.autoLabeler._layers2label[i];
-	        var map_to_add = this._map;
+	        var lg=this._map.autoLabeler._layers2label[i],
+	            map_to_add = this._map;
 	        lg.eachLayer(function(layer){
 	          if(layer.feature)
 	          if(layer.feature.properties[lg._al_options.propertyName]){
-	            var node =DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle);
-	            var size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-	            var firstItem = itemFactory.LabelItem(node,size,layer);
-	            var nextPartIndex=firstItem.readData();
+	            var node = DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle),
+	                size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
+	            var firstItem = itemFactory.LabelItem(node,size,layer), nextPartIndex=firstItem.readData();
 	            pt.push(firstItem);
 	            while(nextPartIndex){
 	              var item = itemFactory.LabelItem(node,size,layer); //create node template
@@ -1759,8 +1758,7 @@
 	      if(item.layer_type()==0){//if point -> do nothing.
 	        continue;
 	      }
-	      //else compute for lines and polygons
-	      //now it is only fo lines
+	      //else compute for lines and polygons, now it is only fo lines
 	      if(item.layertype==1){
 	        this._applyLineFeatureData(item); //in case where two or move separate polylines generated for original polyline while rendering (imagine big W cutted by screen iwndow)
 	      }
@@ -1768,20 +1766,19 @@
 	    return true;
 	  },
 	
+	  /**
+	  Calculates total length for this polyline on screen, and lengths of each segments with their angles
+	  @param {labelItem} item: an item to get above data to
+	  */
 	  _applyLineFeatureData:function(item){ //calculate some data once to increase performance
-	    item.specific.totalItemLength=0;
-	    for(var j=0;j<item.data.length;j++){ //here we aquire segments to label, iterate through oarts
-	      var curpart = item.data[j], curPartSegData=[], curPartLen=0;
-	      for(var k=1;k<curpart.length;k++){
-	        var a = curpart[k-1], b = curpart[k];
-	        var ablen = a.distanceTo(b); //compute segment length only once
-	        var abangle = geomEssentials.computeAngle(a,b,true); //same for angles
-	        curPartLen+=ablen;
-	        curPartSegData.push({seglen:ablen,angle:abangle});
+	      item.totalLength=0;
+	      for(var k=1;k<item.data.length;k++){
+	        var a = item.data[k-1], b = item.data[k],
+	            ablen = a.distanceTo(b), //compute segment length only once
+	            abangle = geomEssentials.computeAngle(a,b,true); //same for angles
+	        item.segdata.push({seglen:ablen,angle:abangle});
+	        item.totalLength+=ablen;
 	      }
-	      item.complement.push({segdata:curPartSegData,partLength:curPartLen}); //for this part
-	      item.specific.totalItemLength+=curPartLen;
-	    }
 	  },
 	
 	  _getLineSegmentBoundaryPoly:function(item){
@@ -1801,14 +1798,24 @@
 /* 12 */
 /***/ function(module, exports) {
 
+	/*
+	modlue to create labelItems convenient for labelling and calculation
+	*/
+	
 	module.exports = {
+	  /**
+	  a factory function for label items
+	  @param {TextNode} txNode: SVG TextNode
+	  @param {L.Point} txSize: size of bounding box for txNode
+	  @param {L.Layer} layer: a feature (Marker, Polyline, Path) to aquire data
+	  */
 	  labelItem:function(txNode,txSize,layer){
 	    var basic_item= {
 	      txNode:txNode,
 	      txSize:txSize,
 	      layer:layer,
-	      readData:function(){},
-	      layer_type:function(){
+	      readData:function(){}, //a method stub
+	      layer_type:function(){ //return a layer type, where 0 is point, 1 is line, 2 is poly
 	        if(layer instanceof  L.CircleMarker || L.Marker)return 0;
 	        if(layer instanceof L.Polyline)return 1;
 	        if(layer instanceof L.Polygon)return 2;
@@ -1818,9 +1825,11 @@
 	    if(basic_item.layer_type()==0){
 	      basic_item.data=L.Map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
 	    }else{
+	      //this give possibility to read all parts to separate items
 	      basic_item.readData=function(partIndex){ //to read consequently
 	        if(!partIndex){var partIndex=0;};
 	        this.data = this.layer._parts[partIndex];
+	        this.partIndex=partIndex; //store this to have ability to compute totalOffset, for example
 	        var nextPart=partIndex++;
 	        if(nextPart<this.layer._parts.length)return nextPart;
 	      }
