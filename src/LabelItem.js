@@ -9,21 +9,28 @@ module.exports = {
   @param {L.Point} txSize: size of bounding box for txNode
   @param {L.Layer} layer: a feature (Marker, Polyline, Path) to aquire data
   */
-  labelItem:function(txNode,txSize,layer){
+  labelItem:function(txNode,txSize,layer,hostArray){
     var basic_item= {
       txNode:txNode,
       txSize:txSize,
       layer:layer,
-      readData:function(){}, //a method stub
+      host:hostArray,
+      index:function(){
+        return host.lastIndexOf(this);
+      },
+      readData:function(){return false}, //a method stub
       layer_type:function(){ //return a layer type, where 0 is point, 1 is line, 2 is poly
-        if(layer instanceof  L.CircleMarker || L.Marker)return 0;
-        if(layer instanceof L.Polyline)return 1;
-        if(layer instanceof L.Polygon)return 2;
+        if(layer instanceof  L.CircleMarker || L.Marker)
+        return 0;
+        if(layer instanceof L.Polyline)
+        return 1;
+        if(layer instanceof L.Polygon)
+        return 2;
       }
     };
 
     if(basic_item.layer_type()==0){
-      basic_item.data=L.Map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
+      //basic_item.data=layer._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
     }else{
       //this give possibility to read all parts to separate items
       basic_item.readData=function(partIndex){ //to read consequently
@@ -31,16 +38,17 @@ module.exports = {
         this.data = this.layer._parts[partIndex];
         this.partIndex=partIndex; //store this to have ability to compute totalOffset, for example
         var nextPart=partIndex++;
-        if(nextPart<this.layer._parts.length)return nextPart;
+        if(nextPart<this.layer._parts.length)return nextPart;else return false;
       }
     }
 
     if(basic_item.layer_type()==1){
       basic_item.segdata=[];
       basic_item.totalLength=0;
-      basic_item.getSegment = function(index){
+      basic_item.getSegment = function(index,no_segdata){
         var a = this.data[index], b = this.data[index+1];
-        return [a,b,this.segdata[index]];
+        if(ano_segdata)return [a,b];
+        else return [a,b,this.segdata[index]];
       }
       basic_item.segCount = function(){
         return this.segdata.length;
@@ -81,14 +89,39 @@ module.exports = {
     }
     return basic_item;
   },
+
   candidatePosition:function(offset_or_origin,item){
     return {
-      item:item,
+      _item:item,
       offset_or_origin:offset_or_origin,
       _poly:false,
-      _computePoly:function(){
-        //TODO [_computePoly] depending on item type, compute polygon to check in annealing for this offset_or_origin
+      all_items_index:function(){return item.index},
+
+      /**
+      Used for calculationg overlaps for text along path (textPath SVG).
+      @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
+      @param {LabelItem} item:
+      @returns {Array} : a poly bounding curved text
+      */
+      _computePolyForLine:function(start_offset,item){
+        var final_offset = start_offset + item.txSize.x;
+        var end_offset=(final_offset<=item.totalLength)?final_offset:item.totalLength;
+        return geomEssentials.computeLineBoundaryPolygon(start_offset,end_offset,item);
       },
+
+      /**
+      common function switch for computing poly for different layer_types
+      */
+      _computePoly:function(){
+        switch(item.layer_type()){
+          case 0:break;
+          case 1:{
+              this._poly = this._computePolyForLine(this.offset_or_origin,this._item);
+            }
+          case 2:break;
+        }
+      },
+
       poly:function(){
         if(!this._poly)this._computePoly();
         return this._poly;

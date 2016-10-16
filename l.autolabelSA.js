@@ -522,34 +522,79 @@
 	  },
 	
 	  /**
+	  Supplement function for extractSubPolyline
+	  returns start index, end index in segments array for item, also first cropped seg and last cropped seg.
+	  If only one seg here, it is crop both ends.
+	  @param {Number} offset_start:
+	  @param {Number} offset_end:
+	  @param {labelItem} item: item layer_type 1 with data and segdata fill
+	  @returns {Object}:
+	  */
+	  getOffsetWindowOnPolylineWithBorderSegments:function(offset_start,offset_end,item){
+	    var start = item.getSegmentIdxAndDistByOffset(offset_start),
+	        end = item.getSegmentIdxAndDistByOffset(offset_end),
+	        firstSeg = item.getSegment(start.index);
+	        firstSeg[0] = this.interpolateOnPointSegment(firstSeg,(start.dist-offset_start)/firstSeg[2].seglen);
+	        var lastSeg;
+	        if(start.index!==end.index){
+	          lastseg = item.getSegment(end.index);
+	          lastseg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
+	        }else{
+	          firstSeg[1]=this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/firstSeg[2].seglen);
+	        }
+	        return {start:start,end:end,firstSeg:firstSeg,lastSeg:lastSeg};
+	  },
+	
+	  /**
+	  extracts sub-polyline frim give item's data line
+	  @param {Object} offsetwindow:
+	  @param {labelItem} item: item layer_type 1 with data and segdata fill
+	  @returns {Array}: array of L.Point
+	  */
+	  extractSubPolylineByOffsetWindow:function(offsetwindow,item){
+	    result = offsetWindow.firstSeg.slice(0,1);
+	    if(!offsetWindow.lastSeg)return result; //one segment case
+	    //and if we have segments in between first/last:
+	    for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
+	      var segment = item.getSegment(i);
+	      result.push(segment[1]);
+	    }
+	    result.push(offsetWindow.lastSeg[1]);
+	    return result;
+	  },
+	
+	  /**
 	  extracts sub-polyline frim give item's data line
 	  @param {Number} offset_start:
 	  @param {Number} offset_end:
 	  @param {labelItem} item: item layer_type 1 with data and segdata fill
 	  @returns {Array}: array of L.Point
 	  */
-	  extractSubPolyline:function(offset_start,offset_end,item, extract_as_segments){
-	    var start = item.getSegmentIdxAndDistByOffset(offset_start),
-	        end = item.getSegmentIdxAndDistByOffset(offset_end),
-	        firstSeg = item.getSegment(start.index);
-	        firstSeg[0] = this.interpolateOnPointSegment(firstSeg,(start.dist-offset_start)/firstSeg[2].seglen);
-	    firstSeg[2].seglen =firstSeg[2].seglen - (start.dist-offset_start);
+	  extractSubPolylineByOffsetValues:function(offset_start,offset_end,item){
+	    var offsetWindow = this.getOffsetWindowOnPolylineWithBorderSegments(offset_start, offset_end, item);
+	    return this.extractSubPolylineByOffsetWindow(offsetWindow);
+	  },
 	
-	    var result = extract_as_segments ? firstSeg : firstSeg.slice(0,1);
-	
-	    if(start.index == end.index)return result; //one segment case
-	    var lastSeg = item.getSegment(end.index);
-	    lastseg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
-	    lastseg[2].seglen = start.dist-offset_start;
-	
-	
-	    //and if we have segments in between first/last:
-	    for(var i=start.index+1;i<end.index;i++){
-	      var segment = item.getSegment(i);
-	      result.push(extract_as_segments? segment:segment[1]);
+	  /**
+	  Used for calculationg overlaps for text along path (textPath SVG).
+	  @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
+	  @param {Number} end_offset: global offset for this polyline (item), same as used in rendering
+	  @param {LabelItem} item:
+	  @returns {Array} : a poly bounding with height of item.txSize.y
+	  */
+	  computeLineBoundaryPolygon:function(start_offset,end_offset,item){
+	    var offsetWindow = geomEssentials.getOffsetWindowOnPolylineWithBorderSegments(start_offset,end_offset,item);
+	    var lower_boundary = geomEssentials.extractSubPolylineByOffsetWindow(offsetWindow,item);
+	    var upper_boundary=geomEssentials.translateByNormal(offsetWindow.firstSeg,item.txSize.y); //[a,b]
+	    if(offsetWindow.lastSeg){
+	      for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
+	        var curSegment=geomEssentials.translateByNormal(item.getSegment(i,true),item.txSize.y); //only segpoints
+	        upper_boundary.push(curSegment[1]);
+	      }
+	      upper_boundary.push(geomEssentials.translateByNormal(offsetWindow.lastSeg,item.txSize.y)[1]); //[a,b]);
 	    }
-	    result.push(extract_as_segments? lastSeg:lastSeg[1]);
-	    return result;
+	    Array.prototype.push.apply(lower_boundary, upper_boundary.reverse());
+	    return lower_boundary;
 	  },
 	
 	  /**
@@ -623,6 +668,22 @@
 	      area = 0.5 * area;
 	    }
 	    return area;
+	  },
+	
+	
+	  /**
+	  check if two labels overlab, if no returns false, if yes returns ???area OR polygon??? of averlap
+	  @param {} poly1:a first polygon to check overlap with second
+	  @param {} poly2:a second polygon to check overlap with first
+	  @returns {float}: an area of overlapping, zero if no overlapping
+	  */
+	  checkOverLappingArea:function(poly1,poly2,calculateAreaNotOnlyFactOfOverlapping) {
+	    var clipped = this.clipPoly(poly1,poly2);
+	    if(calculateAreaNotOnlyFactOfOverlapping){
+	      var area =this.polyArea(clipped);
+	      return area;
+	    };
+	    if(clipped.length>0)return 1;else return 0; //for performance, skip area calculation
 	  },
 	
 	  /**
@@ -1238,31 +1299,16 @@
 	
 	  /**
 	  computes the random set of positions for text placement with angles and text values
-	  @param {Array} allsegs: an array with {t,segs} elements, according to t -text of the polyline, segs - its accepted segments to label on. Result array is generated from items of this array
+	  @param {Array} all_items: an array with {t,segs} elements, according to t -text of the polyline, segs - its accepted segments to label on. Result array is generated from items of this array
 	  @returns {Array} : an array with elements such as return values of computeLabelCandidate function
 	  */
-	  getInitialRandomState:function(allsegs){
+	  getInitialRandomState:function(all_items){
 	    var res=[];
-	    for(var i in allsegs){
-	      var candidate = candidateGenerator.computeLabelCandidate(i,allsegs);
+	    for(var i in all_items){
+	      var candidate = candidateGenerator.computeLabelCandidate(i,all_items);
 	      res.push(candidate);
 	    }
 	    return res;
-	  },
-	
-	  /**
-	  check if two labels overlab, if no returns false, if yes returns ???area OR polygon??? of averlap
-	  @param {} poly1:a first polygon to check overlap with second
-	  @param {} poly2:a second polygon to check overlap with first
-	  @returns {float}: an area of overlapping, zero if no overlapping
-	  */
-	  checkOverLappingArea:function(poly1,poly2,calculateAreaNotOnlyFactOfOverlapping) {
-	    var clipped = geomEssentials.clipPoly(poly1,poly2);
-	    if(calculateAreaNotOnlyFactOfOverlapping){
-	      var area =geomEssentials.polyArea(clipped);
-	      return area;
-	    };
-	    if(clipped.length>0)return 1;else return 0; //for performance, skip area calculation
 	  },
 	
 	  /**
@@ -1288,7 +1334,7 @@
 	    for(var i in curset){
 	      for(var j in curset){
 	        if(i>j){ //to exclude variants like compare (1,3) and then (3,1)
-	        var curlabel_value=this.checkOverLappingArea(curset[i].poly,curset[j].poly,this.options.minimizeTotalOverlappingArea);
+	        var curlabel_value=geomEssentials.checkOverLappingArea(curset[i].poly(),curset[j].poly(),this.options.minimizeTotalOverlappingArea);
 	        //for each pair(i,j) push it's value into overlap_values array
 	        //we know that we iterate through only lower triangle of matrix (i,j), so we can reconstruct i and j from overlap_values index and vice versa
 	        //we do it to improve speed when recomputing ovelaps in each annealing iteration in order not to compute all overlaps (with high performance cost)
@@ -1331,28 +1377,26 @@
 	
 	  /**
 	  swaps position for a random label with another from this label's positions pool
-	  @param {Number} index : index of label in allsegs to select new random position from availavle choices.
+	  @param {Number} index : index of label in all_items to select new random position from availavle choices.
 	  @param {Array} curset: currently selected label postions
-	  @param {Array} allsegs: all available postions
+	  @param {Array} all_items: all available postions
 	  @memberof MapAutoLabelSupport#
 	  */
-	  swapCandidateInLabelSetToNew:function(idx,curset,allsegs){
-	    var label_index = curset[idx].allsegs_index;
-	    var new_candidate = candidateGenerator.computeLabelCandidate(label_index,allsegs);
+	  swapCandidateInLabelSetToNew:function(idx,curset,all_items){
+	    var label_index = curset[idx].all_items_index();
+	    var new_candidate = candidateGenerator.computeLabelCandidate(label_index,all_items);
 	    curset[idx]=new_candidate;
 	  },
 	
-	  applyNewPositionsForLabelsInArray:function(idx_array,curset,allsegs){
-	    for(var i in idx_array)this.swapCandidateInLabelSetToNew(idx_array[i],curset,allsegs);
+	  applyNewPositionsForLabelsInArray:function(idx_array,curset,all_items){
+	    for(var i in idx_array)this.swapCandidateInLabelSetToNew(idx_array[i],curset,all_items);
 	  },
 	
 	  /**
-	  calculates total overlapping area with knowlesge of previous value and what label was moved
+	  calculates total overlapping area with knowlesge of previous value and what label was moved, affects curvalues
 	  @param {Array} curvalue: array of float computed at previous step or initital step, consist of elements of lower-triangluar matrix (i,j) of values of overlapping areas for (i,j) els of curset
 	  @param {Array} curset: current set of label with positions
 	  @param {Number} changedLabelIndex: an index of label which position we changed
-	  @returns {Array} : curvalues, recalculated
-	  @memberof MapAutoLabelSupport#
 	  */
 	  evaluateAfterSeveralChanged:function(curvalues,curset,changedLabels) {
 	    var counter=0; //index to iterate through curvalue array
@@ -1361,7 +1405,7 @@
 	      for(var i=0;i<curset.length;i++){
 	        for(var j=0;j<curset.length;j++){if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
 	          if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
-	            var area=this.checkOverLappingArea(curset[i].poly,curset[j].poly,this.options.minimizeTotalOverlappingArea); //and recalculate areas
+	            var area=this.checkOverLappingArea(curset[i].poly(),curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
 	            curvalues[counter]=area;
 	            }
 	            counter++;
@@ -1371,7 +1415,6 @@
 	    }
 	    curvalues.pop(); //remove prev sum
 	    this.assignCostFunctionValuesToLastEl(curvalues);
-	    return curvalues;
 	  },
 	
 	  dodebug:function(message){
@@ -1396,63 +1439,53 @@
 	
 	  /**
 	  find optimal label placement based on simulated annealing approach, relies on paper https://www.eecs.harvard.edu/shieber/Biblio/Papers/jc.label.pdf
-	  @param {Array} allsegs: an arr with labels and their available line segments to place
+	  @param {Array} all_items: an arr with labels and their available line segments to place
 	  @param {Object} options: TODO [simulatedAnnealing] add options description
 	  @param {Object} callback: a function to gather results and use them to render
 	  @param {Object} context: a parent conext of the function  above (arguments.callee - but deprecated)
 	  */
-	  perform:function(allsegs,options,callback,context) {
-	        if(allsegs.length<1){callback([])} //do nothing if no segments
+	  perform:function(all_items,options,callback,context) {
+	        if(all_items.length<1){callback([])} //do nothing if no segments
 	        else{
 	          var t0 = performance.now();
 	          this.processOptions(options);
 	          //init
-	          var curset=this.getInitialRandomState(allsegs), //current label postions
+	          var curset=this.getInitialRandomState(all_items), //current label postions
 	           curvalues = this.evaluateCurSet(curset), //current overlaping matrix (conflict graph)
 	           t=this.options.t0, stepcount=0, doexit=curvalues[curvalues.length-1] === 0,//if no overlaping at init state, do nothing and return curretn state
 	           iterations=0, This=this;
 	
-	          var doReturn = function(dorender){
-	            This.dodebug('-----');
-	            if(dorender){
+	          var doReturn = function(){
 	              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
 	              This.dodebug('time to annealing = '+(performance.now()-t0));
 	              This.markOveralppedLabels(curset,curvalues);
 	              callback.call(context,curset);
-	            }else{
-	              This.dodebug('Map state has been changed. Terminated.');
 	            }
 	          }
 	
 	          //step
 	          while(true){
-	            var dorender=true;
-	             //let know map which timer we are using
-	            //while constant temperature, do some replacments:
-	            //  while(t>options.tmin && stepcount<options.maxsteps && !doexit
+	            //while(t>options.tmin && stepcount<options.maxsteps && !doexit
 	            if(t<=this.options.tmin || stepcount>=this.options.maxsteps){
-	              doReturn(dorender);
+	              doReturn();
 	              return;
 	            }
 	            stepcount++;
 	            var improvements_count=0, no_improve_count=0;
-	            for(var i=0;i<this.options.constant_temp_repositionings*curset.length;i++){
-	              var oldvalues = curvalues.slice(0); //clone curvalues in order to return to ld ones
-	              var oldset = curset.slice(0);
-	              //now replace randomly all positions, not a sim ann actually
-	              //TODO [simulatedAnnealing] do actual sim ann - move only overlapping now labels to new random position, for example
-	              var overlapped_indexes = this.getOverlappingLabelsIndexes(curvalues,curset);
-	              this.applyNewPositionsForLabelsInArray(overlapped_indexes,curset,allsegs);
-	              // this.evaluateAfterSeveralChanged(curvalues,curset,overlapped_indexes);
-	              curvalues=this.evaluateCurSet(curset);
+	            for(var i=0;i<this.options.constant_temp_repositionings*curset.length;i++){ //while constant temperature, do some replacments
+	              var oldvalues = curvalues.slice(0), //clone curvalues in order to return to ld ones
+	                  oldset = curset.slice(0),
+	                  overlapped_indexes = this.getOverlappingLabelsIndexes(curvalues,curset);
+	              this.applyNewPositionsForLabelsInArray(overlapped_indexes,curset,all_items);
+	              this.evaluateAfterSeveralChanged(curvalues,curset,overlapped_indexes);
 	              iterations++;
 	              if(curvalues[curvalues.length-1] === 0){ //no overlaps already
 	                This.dodebug('strict solution');
-	                doReturn(dorender);
+	                doReturn();
 	                return;
 	              }
 	              if(iterations>this.options.maxtotaliterations){ //not to hang too long
-	                doReturn(dorender);
+	                doReturn();
 	                return;
 	              }
 	              var delta = (oldvalues[oldvalues.length-1]-curvalues[curvalues.length-1]);
@@ -1472,13 +1505,11 @@
 	               }
 	              if(no_improve_count>=this.options.max_noimprove_count*curset.length){ //it is already optimal
 	                This.dodebug('stable state, finish on it');
-	                doReturn(dorender);
+	                doReturn();
 	                return;
 	              }
 	              if(improvements_count>=this.options.max_improvments_count*curset.length){
-	                //immediately exit cycle and decrease current t
-	                doReturn(dorender);
-	                return;
+	                break; //of for
 	              }
 	            }
 	            //decrease t
@@ -1486,7 +1517,7 @@
 	          };
 	      }
 	  }
-	}
+	
 	
 	module.exports = simulatedAnnealing;
 
@@ -1522,88 +1553,6 @@
 	    return candidate;
 	  },
 	
-	  /**
-	  Used for calculationg overlaps for text along path (textPath SVG).
-	  @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
-	  @param {Object} item: item from prepareCurSegments's allsegs
-	  @returns {Array} : a poly bounding curved text
-	  TODO [computeComplexPolyForLine] rewrite for new notation
-	  */
-	  computeComplexPolyForLine:function(start_offset,item){
-	    var final_offset = start_offset + item.txSize.w;
-	    var end_offset=(final_offset<=item.totalLength)?final_offset:item.totalLength;
-	    var sub_polyline = geomEssentials.extractSubPolyline(start_offset,end_offset,item,true); // as segments array
-	
-	    for(var i in sub_polyline){
-	      segment = sub_polyline[i];
-	    }
-	
-	    //TODO when label is longer than available polyline - no need to, beacuse text is trimmed, maybe show a warning?
-	
-	
-	  },
-	
-	  computeComplexPolyForLineoldfunction(start_offset,item){
-	    var idxNdistStart = this._getSegmentIdxAndDistByOffset(start_offset,item);
-	    var labelLength = item.t.poly[2][0], labelHeight = Math.abs(item.t.poly[1][1]),
-	        segStart = item.segs[idxNdistStart.index],
-	        labelSpaceOnFirstSegment = (idxNdistStart.dist - start_offset);
-	
-	    //TODO [computeComplexPolyForLine] check left-to-right text orientation on final polygone!
-	
-	
-	    //in the next lines we construct upper boundary of total polygone - lower is polyline actually =)
-	    //now fill above lines
-	    var above_line = [getAboveLine(segStart,segStart.seglen -  labelSpaceOnFirstSegment,labelLength,labelHeight)];
-	    var above_lines = [above_line.line];
-	    var finishOnLineBelow = above_line.line[1];
-	    var remaining_length = labelLength-above_line.minusLen;
-	    //if we have more than 1 segment to cover:
-	    if(labelSpaceOnFirstSegment < labelLength && idxNdistStart.index<(item.segs.length-1)){
-	      var idxNdisEnd = this._getSegmentIdxAndDistByOffset(start_offset+labelLength,item);
-	      for(var i=idxNdistStart.index+1;i<=idxNdisEnd.index;i++)if(remaining_length>0){
-	        var temp_line = [getAboveLine(item.segs[i],0,remaining_length,labelHeight)];
-	        above_lines.push(temp_line.line);
-	        remaining_length-=temp_line.minusLen;
-	        finishOnLineBelow=temp_line.line[1];
-	      }
-	    }
-	
-	    //if we have some unsused length
-	    //TODO [computeComplexPolyForLine] check if it is draw actually, so no add to polyline part (below)
-	    if(remaining_length>0){
-	      var last_segment_expanded = geomEssentials.expandSegment(above_lines.pop(),remaining_length);
-	      above_lines.push(last_segment_expanded);
-	    }
-	
-	    var TINY = 1; //beacouse 1px is tiny on screen
-	    var poly=[geomEssentials.interpolateOnPointSegment(segStart.seg[0],segStart.seg[1],(segStart.seglen -  labelSpaceOnFirstSegment)/segStart.seglen)]; // a result! init with first point on polyline
-	    poly.push(above_lines[0][0]);
-	    //expand / slice lines to have a continius boundary above
-	    for(var j=1;j< above_lines.length;j++){
-	      var endOfPrev = above_lines[j-1][1];
-	      var startOfThis =  above_lines[j][0];
-	      if(startOfThis.distanceTo(endOfPrev)>TINY){
-	        //add middle line
-	      }else{
-	        poly.push(endOfPrev);
-	      }
-	    }
-	
-	    //push last vertex of above;
-	    poly.push(above_lines[j][1]);
-	
-	    //now add polyline pts, in reverse order
-	    poly.push(finishOnLineBelow);
-	    if(idxNdisEnd){ //more than 1 seg
-	      for(var k=idxNdisEnd.index;k>idxNdistStart.index;k--){
-	        poly.push(item.segs[k].seg[0]);
-	      }
-	    }
-	    //now compute poly from below and above boundary
-	
-	    return poly; //starting with insertion point on the line
-	  },
 	  /**
 	  computes label candidate object to place on map
 	  @param {Number} i: an index in all_items array to obtain label candidate for i-item
@@ -1660,10 +1609,10 @@
 	          if(layer.feature.properties[lg._al_options.propertyName]){
 	            var node = DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle),
 	                size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-	            var firstItem = itemFactory.LabelItem(node,size,layer), nextPartIndex=firstItem.readData();
+	            var firstItem = itemFactory.labelItem(node,size,layer,pt), nextPartIndex=firstItem.readData();
 	            pt.push(firstItem);
 	            while(nextPartIndex){
-	              var item = itemFactory.LabelItem(node,size,layer); //create node template
+	              var item = itemFactory.labelItem(node,size,layer,pt); //create node template
 	              nextPartIndex=item.readData(nextPartIndex);
 	              pt.push(item);
 	            }
@@ -1683,7 +1632,7 @@
 	    options = options || {};
 	    options.maxlabelcount=options.maxlabelcount || 100;
 	    if(all_items.length>options.maxlabelcount || all_items.length==0){
-	      this._map._dodebug('too much OR no labels to compute('+all_items.length+')');
+	      this._map.autoLabeler._dodebug('too much OR no labels to compute('+all_items.length+')');
 	      return false;
 	    }
 	    for(var i=0;i<all_items.length;i++){
@@ -1740,21 +1689,28 @@
 	  @param {L.Point} txSize: size of bounding box for txNode
 	  @param {L.Layer} layer: a feature (Marker, Polyline, Path) to aquire data
 	  */
-	  labelItem:function(txNode,txSize,layer){
+	  labelItem:function(txNode,txSize,layer,hostArray){
 	    var basic_item= {
 	      txNode:txNode,
 	      txSize:txSize,
 	      layer:layer,
-	      readData:function(){}, //a method stub
+	      host:hostArray,
+	      index:function(){
+	        return host.lastIndexOf(this);
+	      },
+	      readData:function(){return false}, //a method stub
 	      layer_type:function(){ //return a layer type, where 0 is point, 1 is line, 2 is poly
-	        if(layer instanceof  L.CircleMarker || L.Marker)return 0;
-	        if(layer instanceof L.Polyline)return 1;
-	        if(layer instanceof L.Polygon)return 2;
+	        if(layer instanceof  L.CircleMarker || L.Marker)
+	        return 0;
+	        if(layer instanceof L.Polyline)
+	        return 1;
+	        if(layer instanceof L.Polygon)
+	        return 2;
 	      }
 	    };
 	
 	    if(basic_item.layer_type()==0){
-	      basic_item.data=L.Map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
+	      //basic_item.data=layer._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
 	    }else{
 	      //this give possibility to read all parts to separate items
 	      basic_item.readData=function(partIndex){ //to read consequently
@@ -1762,16 +1718,17 @@
 	        this.data = this.layer._parts[partIndex];
 	        this.partIndex=partIndex; //store this to have ability to compute totalOffset, for example
 	        var nextPart=partIndex++;
-	        if(nextPart<this.layer._parts.length)return nextPart;
+	        if(nextPart<this.layer._parts.length)return nextPart;else return false;
 	      }
 	    }
 	
 	    if(basic_item.layer_type()==1){
 	      basic_item.segdata=[];
 	      basic_item.totalLength=0;
-	      basic_item.getSegment = function(index){
+	      basic_item.getSegment = function(index,no_segdata){
 	        var a = this.data[index], b = this.data[index+1];
-	        return [a,b,this.segdata[index]];
+	        if(ano_segdata)return [a,b];
+	        else return [a,b,this.segdata[index]];
 	      }
 	      basic_item.segCount = function(){
 	        return this.segdata.length;
@@ -1812,14 +1769,39 @@
 	    }
 	    return basic_item;
 	  },
+	
 	  candidatePosition:function(offset_or_origin,item){
 	    return {
-	      item:item,
+	      _item:item,
 	      offset_or_origin:offset_or_origin,
 	      _poly:false,
-	      _computePoly:function(){
-	        //TODO [_computePoly] depending on item type, compute polygon to check in annealing for this offset_or_origin
+	      all_items_index:function(){return item.index},
+	
+	      /**
+	      Used for calculationg overlaps for text along path (textPath SVG).
+	      @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
+	      @param {LabelItem} item:
+	      @returns {Array} : a poly bounding curved text
+	      */
+	      _computePolyForLine:function(start_offset,item){
+	        var final_offset = start_offset + item.txSize.x;
+	        var end_offset=(final_offset<=item.totalLength)?final_offset:item.totalLength;
+	        return geomEssentials.computeLineBoundaryPolygon(start_offset,end_offset,item);
 	      },
+	
+	      /**
+	      common function switch for computing poly for different layer_types
+	      */
+	      _computePoly:function(){
+	        switch(item.layer_type()){
+	          case 0:break;
+	          case 1:{
+	              this._poly = this._computePolyForLine(this.offset_or_origin,this._item);
+	            }
+	          case 2:break;
+	        }
+	      },
+	
 	      poly:function(){
 	        if(!this._poly)this._computePoly();
 	        return this._poly;

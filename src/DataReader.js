@@ -26,10 +26,10 @@ var dataReader = {
           if(layer.feature.properties[lg._al_options.propertyName]){
             var node = DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle),
                 size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-            var firstItem = itemFactory.LabelItem(node,size,layer), nextPartIndex=firstItem.readData();
+            var firstItem = itemFactory.labelItem(node,size,layer,pt), nextPartIndex=firstItem.readData();
             pt.push(firstItem);
             while(nextPartIndex){
-              var item = itemFactory.LabelItem(node,size,layer); //create node template
+              var item = itemFactory.labelItem(node,size,layer,pt); //create node template
               nextPartIndex=item.readData(nextPartIndex);
               pt.push(item);
             }
@@ -49,7 +49,7 @@ var dataReader = {
     options = options || {};
     options.maxlabelcount=options.maxlabelcount || 100;
     if(all_items.length>options.maxlabelcount || all_items.length==0){
-      this._map._dodebug('too much OR no labels to compute('+all_items.length+')');
+      this._map.autoLabeler._dodebug('too much OR no labels to compute('+all_items.length+')');
       return false;
     }
     for(var i=0;i<all_items.length;i++){

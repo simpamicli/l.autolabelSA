@@ -157,34 +157,79 @@ var geomEssentials = {
   },
 
   /**
+  Supplement function for extractSubPolyline
+  returns start index, end index in segments array for item, also first cropped seg and last cropped seg.
+  If only one seg here, it is crop both ends.
+  @param {Number} offset_start:
+  @param {Number} offset_end:
+  @param {labelItem} item: item layer_type 1 with data and segdata fill
+  @returns {Object}:
+  */
+  getOffsetWindowOnPolylineWithBorderSegments:function(offset_start,offset_end,item){
+    var start = item.getSegmentIdxAndDistByOffset(offset_start),
+        end = item.getSegmentIdxAndDistByOffset(offset_end),
+        firstSeg = item.getSegment(start.index);
+        firstSeg[0] = this.interpolateOnPointSegment(firstSeg,(start.dist-offset_start)/firstSeg[2].seglen);
+        var lastSeg;
+        if(start.index!==end.index){
+          lastseg = item.getSegment(end.index);
+          lastseg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
+        }else{
+          firstSeg[1]=this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/firstSeg[2].seglen);
+        }
+        return {start:start,end:end,firstSeg:firstSeg,lastSeg:lastSeg};
+  },
+
+  /**
+  extracts sub-polyline frim give item's data line
+  @param {Object} offsetwindow:
+  @param {labelItem} item: item layer_type 1 with data and segdata fill
+  @returns {Array}: array of L.Point
+  */
+  extractSubPolylineByOffsetWindow:function(offsetwindow,item){
+    result = offsetWindow.firstSeg.slice(0,1);
+    if(!offsetWindow.lastSeg)return result; //one segment case
+    //and if we have segments in between first/last:
+    for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
+      var segment = item.getSegment(i);
+      result.push(segment[1]);
+    }
+    result.push(offsetWindow.lastSeg[1]);
+    return result;
+  },
+
+  /**
   extracts sub-polyline frim give item's data line
   @param {Number} offset_start:
   @param {Number} offset_end:
   @param {labelItem} item: item layer_type 1 with data and segdata fill
   @returns {Array}: array of L.Point
   */
-  extractSubPolyline:function(offset_start,offset_end,item, extract_as_segments){
-    var start = item.getSegmentIdxAndDistByOffset(offset_start),
-        end = item.getSegmentIdxAndDistByOffset(offset_end),
-        firstSeg = item.getSegment(start.index);
-        firstSeg[0] = this.interpolateOnPointSegment(firstSeg,(start.dist-offset_start)/firstSeg[2].seglen);
-    firstSeg[2].seglen =firstSeg[2].seglen - (start.dist-offset_start);
+  extractSubPolylineByOffsetValues:function(offset_start,offset_end,item){
+    var offsetWindow = this.getOffsetWindowOnPolylineWithBorderSegments(offset_start, offset_end, item);
+    return this.extractSubPolylineByOffsetWindow(offsetWindow);
+  },
 
-    var result = extract_as_segments ? firstSeg : firstSeg.slice(0,1);
-
-    if(start.index == end.index)return result; //one segment case
-    var lastSeg = item.getSegment(end.index);
-    lastseg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
-    lastseg[2].seglen = start.dist-offset_start;
-
-
-    //and if we have segments in between first/last:
-    for(var i=start.index+1;i<end.index;i++){
-      var segment = item.getSegment(i);
-      result.push(extract_as_segments? segment:segment[1]);
+  /**
+  Used for calculationg overlaps for text along path (textPath SVG).
+  @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
+  @param {Number} end_offset: global offset for this polyline (item), same as used in rendering
+  @param {LabelItem} item:
+  @returns {Array} : a poly bounding with height of item.txSize.y
+  */
+  computeLineBoundaryPolygon:function(start_offset,end_offset,item){
+    var offsetWindow = geomEssentials.getOffsetWindowOnPolylineWithBorderSegments(start_offset,end_offset,item);
+    var lower_boundary = geomEssentials.extractSubPolylineByOffsetWindow(offsetWindow,item);
+    var upper_boundary=geomEssentials.translateByNormal(offsetWindow.firstSeg,item.txSize.y); //[a,b]
+    if(offsetWindow.lastSeg){
+      for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
+        var curSegment=geomEssentials.translateByNormal(item.getSegment(i,true),item.txSize.y); //only segpoints
+        upper_boundary.push(curSegment[1]);
+      }
+      upper_boundary.push(geomEssentials.translateByNormal(offsetWindow.lastSeg,item.txSize.y)[1]); //[a,b]);
     }
-    result.push(extract_as_segments? lastSeg:lastSeg[1]);
-    return result;
+    Array.prototype.push.apply(lower_boundary, upper_boundary.reverse());
+    return lower_boundary;
   },
 
   /**
@@ -258,6 +303,22 @@ var geomEssentials = {
       area = 0.5 * area;
     }
     return area;
+  },
+
+
+  /**
+  check if two labels overlab, if no returns false, if yes returns ???area OR polygon??? of averlap
+  @param {} poly1:a first polygon to check overlap with second
+  @param {} poly2:a second polygon to check overlap with first
+  @returns {float}: an area of overlapping, zero if no overlapping
+  */
+  checkOverLappingArea:function(poly1,poly2,calculateAreaNotOnlyFactOfOverlapping) {
+    var clipped = this.clipPoly(poly1,poly2);
+    if(calculateAreaNotOnlyFactOfOverlapping){
+      var area =this.polyArea(clipped);
+      return area;
+    };
+    if(clipped.length>0)return 1;else return 0; //for performance, skip area calculation
   },
 
   /**
