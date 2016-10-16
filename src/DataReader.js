@@ -72,10 +72,8 @@ var dataReader = {
   _applyLineFeatureData:function(item){ //calculate some data once to increase performance
       item.totalLength=0;
       for(var k=1;k<item.data.length;k++){
-        var a = item.data[k-1], b = item.data[k],
-            ablen = a.distanceTo(b), //compute segment length only once
-            abangle = geomEssentials.computeAngle(a,b,true); //same for angles
-        item.segdata.push({seglen:ablen,angle:abangle});
+        var a = item.data[k-1], b = item.data[k];
+        item.segdata.push(geomEssentials.computeSegDataLenAngle(a,b));
         item.totalLength+=ablen;
       }
   },

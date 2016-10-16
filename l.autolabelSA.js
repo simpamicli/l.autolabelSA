@@ -419,7 +419,7 @@
 	  },
 	
 	  /**
-	  moves a poly by translating all its vertices to moveto
+	  moves a poly by translating all its vertices to moveto, using first vertex as origin
 	  @param {Array} poly: a poly to movePoly
 	  @param {Array} moveto: where translate all vertices
 	  @returns {Array}: moved poly
@@ -433,6 +433,31 @@
 	      res[i][0]+=moveto[0]; res[i][1]+=moveto[1];
 	    }
 	    return res;
+	  },
+	
+	  /**
+	  returns {seglen, angle} data structure for a,b segment
+	  @param {L.Point} a: start point
+	  @param {L.Point} b: fin point
+	  @returns {Object}:
+	  */
+	  computeSegDataLenAngle:function(a,b){
+	    ablen = a.distanceTo(b), //compute segment length only once
+	    abangle = this.computeAngle(a,b,true); //same for angles
+	    return {seglen:ablen,angle:abangle};
+	  },
+	
+	  /**
+	  translates segment to new loc by adding point to its vertices
+	  @param {Array} segment:
+	  @param {L.Point} point:
+	  @returns {Array}:
+	  */
+	  translateSegment:function(segment, point){
+	    var result=segment.sliuce(0);
+	    result[0] = result[0].add(point);
+	    result[1] = result[2].add(point);
+	    return result;
 	  },
 	  /**
 	  code from L.GeometryUtil plugin
@@ -475,14 +500,56 @@
 	  },
 	
 	  /**
+	  copies segment and translates copy in normal direction by height value (may be negative)
+	  @param {Array} segment: a segment to translates
+	  @param {Number} height: how factory
+	  @returns {Array}: translated copy of segment
+	  */
+	  translateByNormal:function(segment,height){
+	    var normal = this.getNormalOnSegment(segment).multiplyBy(height);
+	    return segment.translateSegment(normal);
+	  },
+	
+	  /**
 	  code from L.GeometryUtil plugin
 	  @memberof geomEssentials#
 	  */
-	  interpolateOnPointSegment: function (pA, pB, ratio) {
+	  interpolateOnPointSegment: function (segment, ratio) {
 	      return L.point(
-	          (pA.x * (1 - ratio)) + (ratio * pB.x),
-	          (pA.y * (1 - ratio)) + (ratio * pB.y)
+	          (segment[0].x * (1 - ratio)) + (ratio * segment[1].x),
+	          (segment[0].y * (1 - ratio)) + (ratio * segment[1].y)
 	      );
+	  },
+	
+	  /**
+	  extracts sub-polyline frim give item's data line
+	  @param {Number} offset_start:
+	  @param {Number} offset_end:
+	  @param {labelItem} item: item layer_type 1 with data and segdata fill
+	  @returns {Array}: array of L.Point
+	  */
+	  extractSubPolyline:function(offset_start,offset_end,item, extract_as_segments){
+	    var start = item.getSegmentIdxAndDistByOffset(offset_start),
+	        end = item.getSegmentIdxAndDistByOffset(offset_end),
+	        firstSeg = item.getSegment(start.index);
+	        firstSeg[0] = this.interpolateOnPointSegment(firstSeg,(start.dist-offset_start)/firstSeg[2].seglen);
+	    firstSeg[2].seglen =firstSeg[2].seglen - (start.dist-offset_start);
+	
+	    var result = extract_as_segments ? firstSeg : firstSeg.slice(0,1);
+	
+	    if(start.index == end.index)return result; //one segment case
+	    var lastSeg = item.getSegment(end.index);
+	    lastseg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
+	    lastseg[2].seglen = start.dist-offset_start;
+	
+	
+	    //and if we have segments in between first/last:
+	    for(var i=start.index+1;i<end.index;i++){
+	      var segment = item.getSegment(i);
+	      result.push(extract_as_segments? segment:segment[1]);
+	    }
+	    result.push(extract_as_segments? lastSeg:lastSeg[1]);
+	    return result;
 	  },
 	
 	  /**
@@ -509,7 +576,7 @@
 	  expandSegment:function(segment,length){
 	    var res=segment.slice(0);
 	    if(length>0){
-	      res[1]=this.interpolateOnPointSegment(segment[0],segment[1],(length + segment[2].seglen)/segment[2].seglen);
+	      res[1]=this.interpolateOnPointSegment(segment,(length + segment[2].seglen)/segment[2].seglen);
 	    }
 	    return res;
 	  },
@@ -1463,19 +1530,27 @@
 	  TODO [computeComplexPolyForLine] rewrite for new notation
 	  */
 	  computeComplexPolyForLine:function(start_offset,item){
+	    var final_offset = start_offset + item.txSize.w;
+	    var end_offset=(final_offset<=item.totalLength)?final_offset:item.totalLength;
+	    var sub_polyline = geomEssentials.extractSubPolyline(start_offset,end_offset,item,true); // as segments array
+	
+	    for(var i in sub_polyline){
+	      segment = sub_polyline[i];
+	    }
+	
+	    //TODO when label is longer than available polyline - no need to, beacuse text is trimmed, maybe show a warning?
+	
+	
+	  },
+	
+	  computeComplexPolyForLineoldfunction(start_offset,item){
 	    var idxNdistStart = this._getSegmentIdxAndDistByOffset(start_offset,item);
 	    var labelLength = item.t.poly[2][0], labelHeight = Math.abs(item.t.poly[1][1]),
 	        segStart = item.segs[idxNdistStart.index],
 	        labelSpaceOnFirstSegment = (idxNdistStart.dist - start_offset);
 	
 	    //TODO [computeComplexPolyForLine] check left-to-right text orientation on final polygone!
-	    var getAboveLine = function(seg,offset,len,height){ //compute above line according to remained length on this segment
-	      var actual_len = Math.min(len,seg.seglen-offset);
-	      var normal = geomEssentials.getNormalOnSegment(seg).multiplyBy(height);
-	      var firstPt = geomEssentials.interpolateOnPointSegment(seg.seg[0],seg.seg[1],offset/seg.seglen).add(normal);
-	      var endPt = geomEssentials.interpolateOnPointSegment(seg.seg[0],seg.seg[1],(offset+actual_len)/seg.seglen).add(normal);
-	      return {line:[firstPt,endPt],minusLen:actual_len};
-	    }
+	
 	
 	    //in the next lines we construct upper boundary of total polygone - lower is polyline actually =)
 	    //now fill above lines
@@ -1631,10 +1706,8 @@
 	  _applyLineFeatureData:function(item){ //calculate some data once to increase performance
 	      item.totalLength=0;
 	      for(var k=1;k<item.data.length;k++){
-	        var a = item.data[k-1], b = item.data[k],
-	            ablen = a.distanceTo(b), //compute segment length only once
-	            abangle = geomEssentials.computeAngle(a,b,true); //same for angles
-	        item.segdata.push({seglen:ablen,angle:abangle});
+	        var a = item.data[k-1], b = item.data[k];
+	        item.segdata.push(geomEssentials.computeSegDataLenAngle(a,b));
 	        item.totalLength+=ablen;
 	      }
 	  },
@@ -1711,7 +1784,7 @@
 	      @returns {Object} : index of segment and dist which is offset from start of the line to the end of found segment
 	      */
 	      basic_item.getSegmentIdxAndDistByOffset=function(offset){
-	        cdist=0;
+	        var cdist=0;
 	        for(var i=0;i<this.segCount();i++){
 	          cdist+=this.getSegment(i)[2];
 	          if(offset<cdist){

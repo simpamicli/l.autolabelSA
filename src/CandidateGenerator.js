@@ -33,19 +33,27 @@ var candidateGenerator = {
   TODO [computeComplexPolyForLine] rewrite for new notation
   */
   computeComplexPolyForLine:function(start_offset,item){
+    var final_offset = start_offset + item.txSize.w;
+    var end_offset=(final_offset<=item.totalLength)?final_offset:item.totalLength;
+    var sub_polyline = geomEssentials.extractSubPolyline(start_offset,end_offset,item,true); // as segments array
+
+    for(var i in sub_polyline){
+      segment = sub_polyline[i];
+    }
+
+    //TODO when label is longer than available polyline - no need to, beacuse text is trimmed, maybe show a warning?
+
+
+  },
+
+  computeComplexPolyForLineoldfunction(start_offset,item){
     var idxNdistStart = this._getSegmentIdxAndDistByOffset(start_offset,item);
     var labelLength = item.t.poly[2][0], labelHeight = Math.abs(item.t.poly[1][1]),
         segStart = item.segs[idxNdistStart.index],
         labelSpaceOnFirstSegment = (idxNdistStart.dist - start_offset);
 
     //TODO [computeComplexPolyForLine] check left-to-right text orientation on final polygone!
-    var getAboveLine = function(seg,offset,len,height){ //compute above line according to remained length on this segment
-      var actual_len = Math.min(len,seg.seglen-offset);
-      var normal = geomEssentials.getNormalOnSegment(seg).multiplyBy(height);
-      var firstPt = geomEssentials.interpolateOnPointSegment(seg.seg[0],seg.seg[1],offset/seg.seglen).add(normal);
-      var endPt = geomEssentials.interpolateOnPointSegment(seg.seg[0],seg.seg[1],(offset+actual_len)/seg.seglen).add(normal);
-      return {line:[firstPt,endPt],minusLen:actual_len};
-    }
+
 
     //in the next lines we construct upper boundary of total polygone - lower is polyline actually =)
     //now fill above lines

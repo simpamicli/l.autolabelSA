@@ -53,7 +53,7 @@ module.exports = {
       @returns {Object} : index of segment and dist which is offset from start of the line to the end of found segment
       */
       basic_item.getSegmentIdxAndDistByOffset=function(offset){
-        cdist=0;
+        var cdist=0;
         for(var i=0;i<this.segCount();i++){
           cdist+=this.getSegment(i)[2];
           if(offset<cdist){
