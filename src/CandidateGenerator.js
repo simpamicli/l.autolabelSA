@@ -1,4 +1,5 @@
 var geomEssentials = require('./geomEssentials.js');
+var itemFactory = require('./LabelItem.js');
 
 var candidateGenerator = {
   options:{
@@ -162,23 +163,23 @@ var candidateGenerator = {
   @param {Number} i: an index in allsegs array to obtain label for candidate and segments array wuth segments to choose
   @returns {Object} : an object with {t,poly,pos,a,allsegs_index} elements, such as t - text to label,poly - bounding rect of label, pos - pos to place label, a - angle to rotate label,allsegs_index - index in segments array
   */
-  computeLabelCandidate:function(i,allsegs) {
-    var t = allsegs[i].t; //label part
-    var segs = allsegs[i].segs;
+  computeLabelCandidate:function(i,all_items) {
+    var t = all_items[i].t; //label part
+    var segs = all_items[i].segs;
 
     //choose the segment index from parts visible on screeen
     //here we should prioritize segments with bigger length
     //assuming segs array is sorted ascending using segment length
-    //var idx =this.getIndexBasedOnTotalLengthRandom(allsegs[i]);
+    //var idx =this.getIndexBasedOnTotalLengthRandom(all_items[i]);
     var idx = Math.floor(Math.random()*segs.length);
     var poly,point_and_angle;
-    poly = allsegs[i].t.poly;
+    poly = all_items[i].t.poly;
 
-    switch (allsegs[i].layertype) {
+    switch (all_items[i].layertype) {
       case 0:
         break;
       case 1:
-        point_and_angle=this.obtainCandidateForPolyLineByRandomStartOffset(allsegs[i]);
+        point_and_angle=this.obtainCandidateForPolyLineByRandomStartOffset(all_items[i]);
         // point_and_angle=this.obtainCandidateForPolyLineBySegmentIndex(segs[idx],t.poly[2][0]);
         break;
       case 2:
@@ -190,7 +191,7 @@ var candidateGenerator = {
     }
     if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
     poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
-    return {t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};;
+    return {t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,all_items_index:i};;
   },
 }
 

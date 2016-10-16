@@ -23,19 +23,25 @@ module.exports = {
 
   /**
   returns a bounding box for horizontal text with style as in t.content_node
-  @param {Object} t: consist of content_node (SVG text) and this function is adding a new property called 'poly' contatining bbox in format [four points of bbox]
-  @returns {Array} poly: a bbox for t.content_node
+  @param {Object} map: current map
+  @param {Object} node: textNode
+  @returns {L.Point} : a bbox for node, as width and height
   @memberof DOMEssentials#
   */
   getBoundingBox:function(map,node){
     var svg = map.options.renderer._container;
     svg.appendChild(node);
     var rect = node.getBoundingClientRect();
-    var ortho_poly = this.convertClientRectToArrayOfArrays(rect);
     svg.removeChild(node);
-    return ortho_poly;
+    return L.point(rect.width,rect.height);
   },
 
+  /**
+  creates SVG text node with specified style and handles some formatting issues
+  @param {String} text: text for node
+  @param {String} textstyle: CSS style String
+  @returns {TextNode} : SVG node
+  */
   createSVGTextNode:function(text,textstyle){
     text = text.replace(/ /g, '\u00A0');  // Non breakable spaces
     var node =L.SVG.create('text');

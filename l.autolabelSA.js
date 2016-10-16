@@ -336,19 +336,25 @@
 	
 	  /**
 	  returns a bounding box for horizontal text with style as in t.content_node
-	  @param {Object} t: consist of content_node (SVG text) and this function is adding a new property called 'poly' contatining bbox in format [four points of bbox]
-	  @returns {Array} poly: a bbox for t.content_node
+	  @param {Object} map: current map
+	  @param {Object} node: textNode
+	  @returns {L.Point} : a bbox for node, as width and height
 	  @memberof DOMEssentials#
 	  */
 	  getBoundingBox:function(map,node){
 	    var svg = map.options.renderer._container;
 	    svg.appendChild(node);
 	    var rect = node.getBoundingClientRect();
-	    var ortho_poly = this.convertClientRectToArrayOfArrays(rect);
 	    svg.removeChild(node);
-	    return ortho_poly;
+	    return L.point(rect.width,rect.height);
 	  },
 	
+	  /**
+	  creates SVG text node with specified style and handles some formatting issues
+	  @param {String} text: text for node
+	  @param {String} textstyle: CSS style String
+	  @returns {TextNode} : SVG node
+	  */
 	  createSVGTextNode:function(text,textstyle){
 	    text = text.replace(/ /g, '\u00A0');  // Non breakable spaces
 	    var node =L.SVG.create('text');
@@ -1490,6 +1496,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var geomEssentials = __webpack_require__(3);
+	var itemFactory = __webpack_require__(12);
 	
 	var candidateGenerator = {
 	  options:{
@@ -1653,23 +1660,23 @@
 	  @param {Number} i: an index in allsegs array to obtain label for candidate and segments array wuth segments to choose
 	  @returns {Object} : an object with {t,poly,pos,a,allsegs_index} elements, such as t - text to label,poly - bounding rect of label, pos - pos to place label, a - angle to rotate label,allsegs_index - index in segments array
 	  */
-	  computeLabelCandidate:function(i,allsegs) {
-	    var t = allsegs[i].t; //label part
-	    var segs = allsegs[i].segs;
+	  computeLabelCandidate:function(i,all_items) {
+	    var t = all_items[i].t; //label part
+	    var segs = all_items[i].segs;
 	
 	    //choose the segment index from parts visible on screeen
 	    //here we should prioritize segments with bigger length
 	    //assuming segs array is sorted ascending using segment length
-	    //var idx =this.getIndexBasedOnTotalLengthRandom(allsegs[i]);
+	    //var idx =this.getIndexBasedOnTotalLengthRandom(all_items[i]);
 	    var idx = Math.floor(Math.random()*segs.length);
 	    var poly,point_and_angle;
-	    poly = allsegs[i].t.poly;
+	    poly = all_items[i].t.poly;
 	
-	    switch (allsegs[i].layertype) {
+	    switch (all_items[i].layertype) {
 	      case 0:
 	        break;
 	      case 1:
-	        point_and_angle=this.obtainCandidateForPolyLineByRandomStartOffset(allsegs[i]);
+	        point_and_angle=this.obtainCandidateForPolyLineByRandomStartOffset(all_items[i]);
 	        // point_and_angle=this.obtainCandidateForPolyLineBySegmentIndex(segs[idx],t.poly[2][0]);
 	        break;
 	      case 2:
@@ -1681,7 +1688,7 @@
 	    }
 	    if(point_and_angle.angle)poly=geomEssentials.rotatePoly(poly,[0,0],point_and_angle.angle); //rotate if we need this
 	    poly=geomEssentials.movePolyByAdding(poly,[point_and_angle.p2add.x,point_and_angle.p2add.y]);
-	    return {t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,allsegs_index:i};;
+	    return {t:t,poly:poly,pos:point_and_angle.p2add,a:point_and_angle.angle,all_items_index:i};;
 	  },
 	}
 	
@@ -1700,6 +1707,7 @@
 	
 	var DOMEssentials = __webpack_require__(2);
 	var geomEssentials = __webpack_require__(3);
+	var itemFactory = __webpack_require__(12);
 	
 	var dataReader = {
 	  /**
@@ -1708,9 +1716,7 @@
 	  */
 	  readDataToLabel:function(){
 	    var pt  =[];
-	    //this._map=map_to_add;
 	    if(this._map){
-	      //var bounds_to_contain_labels = geomEssentials.getBoundsWithoutPadding(this._map,0.9); // if needed
 	      for(var i in this._map.autoLabeler._layers2label)
 	      if(this._map.getZoom()>this._map.autoLabeler._layers2label[i]._al_options.zoomToStartLabel)
 	      {
@@ -1720,25 +1726,17 @@
 	          if(layer.feature)
 	          if(layer.feature.properties[lg._al_options.propertyName]){
 	            var node =DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle);
-	            var poly = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-	            var layer_type = 0;
-	            var centerOrParts=[]; //array for storing visible segments or centres (for points)
-	            if(layer instanceof L.Polyline || layer instanceof L.Polygon){ //polyline case
-	                if(layer._parts.length>0){ //so, line is visible on screen and has property to label over it
-	                  layer_type = layer instanceof L.Polygon?2:1; //0 goes to marker or circlemarker
-	                  centerOrParts=layer._parts; //for polygon
-	                }
-	              }
-	            else if (layer instanceof L.CircleMarker || L.Marker){
-	              centerOrParts = this._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
-	            }
-	            if(centerOrParts.length>0){
-	              var toAdd = {t:{content_node:node,poly:poly},parts:centerOrParts, layertype: layer_type};
-	              pt.push(toAdd);
-	            }
+	            var size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
+	            var firstItem = itemFactory.LabelItem(node,size,layer);
+	            var nextPartIndex=firstItem.readData();
+	            pt.push(firstItem);
+	            while(nextPartIndex){
+	              var item = itemFactory.LabelItem(node,size,layer); //create node template
+	              nextPartIndex=item.readData(nextPartIndex);
+	              pt.push(item);
 	            }
 	          }
-	        );
+	        });
 	      }
 	    }
 	    return pt;
@@ -1746,71 +1744,49 @@
 	
 	  /**
 	  extracts good segments from available polyline parts and converts to use in next procedures of pos estimation
-	  @param {Array} ptcollection: each item is conatiner with t:label to draw for this polyline, parts - parts of this pline visible on screen in pixel coords
-	  @param {Set} options: options are:  {float} minSegLen: if segment length less than this, it is skipped except it is the only one for current polyline, {integer} maxlabelcount: if more labels in ptcollection, then do nothing
+	  @param {Array} all_items:
+	  @param {Set} options: options are:  {integer} maxlabelcount: if more labels in all_items, then do nothing
 	  */
-	  prepareCurSegments:function(ptcollection,options){
+	  prepareCurSegments:function(all_items,options){
 	    options = options || {};
 	    options.maxlabelcount=options.maxlabelcount || 100;
-	    if(ptcollection.length>options.maxlabelcount){ //FIXME [prepareCurSegments] not aproper way to do things, to overcome two time rendering while zooming
-	      this._map._dodebug('too much labels to compute('+ptcollection.length+'>'+options.maxlabelcount+')');
-	      return [];
+	    if(all_items.length>options.maxlabelcount || all_items.length==0){
+	      this._map._dodebug('too much OR no labels to compute('+all_items.length+')');
+	      return false;
 	    }
-	    var allsegs=[];
-	    for(var i=0;i<ptcollection.length;i++){
-	      var item = ptcollection[i];
-	      if(item.layertype==0){//if point -> do nothing.
-	        allsegs.push({t:item.t,origin:t.parts,layertype:item.layertype});
+	    for(var i=0;i<all_items.length;i++){
+	      var item = all_items[i];
+	      if(item.layer_type()==0){//if point -> do nothing.
 	        continue;
 	      }
 	      //else compute for lines and polygons
 	      //now it is only fo lines
 	      if(item.layertype==1){
-	        var to_all_segs = this._obtainLineFeatureData(item);
-	        if(to_all_segs.segs.length>0)allsegs.push(to_all_segs);
+	        this._applyLineFeatureData(item); //in case where two or move separate polylines generated for original polyline while rendering (imagine big W cutted by screen iwndow)
 	      }
 	    }
-	    return allsegs;
+	    return true;
 	  },
 	
-	  _obtainLineFeatureData:function(item){
-	    var cursetItem=[]; //set of valid segments for this item
-	    var labelLength = item.t.poly[2][0];
-	    for(var j=0;j<item.parts.length;j++){ //here we aquire segments to label
-	      var curpart = item.parts[j];
+	  _applyLineFeatureData:function(item){ //calculate some data once to increase performance
+	    item.specific.totalItemLength=0;
+	    for(var j=0;j<item.data.length;j++){ //here we aquire segments to label, iterate through oarts
+	      var curpart = item.data[j], curPartSegData=[], curPartLen=0;
 	      for(var k=1;k<curpart.length;k++){
-	        var a = curpart[k-1];
-	        var b = curpart[k];
-	        var ab = [a,b];
+	        var a = curpart[k-1], b = curpart[k];
 	        var ablen = a.distanceTo(b); //compute segment length only once
-	        var abangle = geomEssentials.computeAngle(a,b,true);
-	        var what_to_push ={seg:ab,seglen:ablen,angle:abangle};
-	        if(ablen>0)cursetItem.push(what_to_push);
-	        // cursetItem.push(what_to_push);
+	        var abangle = geomEssentials.computeAngle(a,b,true); //same for angles
+	        curPartLen+=ablen;
+	        curPartSegData.push({seglen:ablen,angle:abangle});
 	      }
+	      item.complement.push({segdata:curPartSegData,partLength:curPartLen}); //for this part
+	      item.specific.totalItemLength+=curPartLen;
 	    }
-	    var to_all_segs = {t:item.t,layertype:item.layertype};
-	    to_all_segs.segs=cursetItem;
-	    if(to_all_segs.segs.length>0){
-	      /*to_all_segs.segs.sort(
-	        function(s1,s2){ //by segments length, first are small
-	          return s1.seglen-s2.seglen;
-	        });*/
-	        var total_length=0;
-	        for(var m=0;m<to_all_segs.segs.length;m++)total_length+=to_all_segs.segs[m].seglen;
-	        to_all_segs.total_length=total_length;
-	    }
-	    return to_all_segs;
 	  },
 	
 	  _getLineSegmentBoundaryPoly:function(item){
 	    //TODO [_getLineSegmentBoundaryPoly]
 	    // var labelLength = item.t.poly[2][0];
-	    var labelHeight = -item.t.poly[1][1];
-	    for(var j=0;j<item.parts.length;j++){
-	        var curpart = item.parts[j];
-	
-	    }
 	  },
 	
 	  prepareGeneralConflictGraph:function(all_segs){
@@ -1819,6 +1795,55 @@
 	}
 	
 	module.exports = dataReader;
+
+
+/***/ },
+/* 12 */
+/***/ function(module, exports) {
+
+	module.exports = {
+	  labelItem:function(txNode,txSize,layer){
+	    var basic_item= {
+	      txNode:txNode,
+	      txSize:txSize,
+	      layer:layer,
+	      readData:function(){},
+	      layer_type:function(){
+	        if(layer instanceof  L.CircleMarker || L.Marker)return 0;
+	        if(layer instanceof L.Polyline)return 1;
+	        if(layer instanceof L.Polygon)return 2;
+	      }
+	    };
+	
+	    if(basic_item.layer_type()==0){
+	      basic_item.data=L.Map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
+	    }else{
+	      basic_item.readData=function(partIndex){ //to read consequently
+	        if(!partIndex){var partIndex=0;};
+	        this.data = this.layer._parts[partIndex];
+	        var nextPart=partIndex++;
+	        if(nextPart<this.layer._parts.length)return nextPart;
+	      }
+	    }
+	
+	    if(basic_item.layer_type()==1){
+	      basic_item.segdata=[];
+	      basic_item.totalLength=0;
+	      basic_item.getSegment = function(index){
+	        var a = this.data[index-1], b = this.data[index];
+	        return [a,b,this.segdata[index-1]];
+	      }
+	    }
+	    return basic_item;
+	  },
+	  resItem:function(item_ind,offset_or_origin){
+	    return {
+	      item_ind:item_ind,
+	      offset_or_origin:offset_or_origin
+	    }
+	  },
+	
+	}
 
 
 /***/ }
