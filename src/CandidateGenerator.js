@@ -32,7 +32,7 @@ var candidateGenerator = {
   */
   computeLabelCandidate:function(i,all_items) {
     var candidate;
-    switch (all_items[i].layertype) {
+    switch (all_items[i].layer_type()) {
       case 0:
         break;
       case 1:{

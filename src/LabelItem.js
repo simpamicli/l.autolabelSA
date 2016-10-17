@@ -2,6 +2,8 @@
 modlue to create labelItems convenient for labelling and calculation
 */
 
+var geomEssentials = require('./geomEssentials.js');
+
 module.exports = {
   /**
   a factory function for label items
@@ -17,7 +19,7 @@ module.exports = {
       layer:layer,
       host:hostArray,
       index:function(){
-        return host.lastIndexOf(this);
+        return this.host.lastIndexOf(this);
       },
       readData:function(){return false}, //a method stub
       layer_type:function(){ //return a layer type, where 0 is point, 1 is line, 2 is poly
@@ -31,7 +33,7 @@ module.exports = {
         //   }
         // }
         // return this._type;
-        return (layer._parts.length>0)?1:0;
+        return (this.layer._parts.length>0)?1:0;
       }
     };
 
@@ -60,7 +62,7 @@ module.exports = {
       basic_item.totalLength=0;
       basic_item.getSegment = function(index,no_segdata){
         var a = this.data[index], b = this.data[index+1];
-        if(ano_segdata)return [a,b];
+        if(no_segdata)return [a,b];
         else return [a,b,this.segdata[index]];
       }
       basic_item.segCount = function(){
@@ -76,12 +78,12 @@ module.exports = {
       basic_item.getSegmentIdxAndDistByOffset=function(offset){
         var cdist=0;
         for(var i=0;i<this.segCount();i++){
-          cdist+=this.getSegment(i)[2];
+          cdist+=this.getSegment(i)[2].seglen;
           if(offset<cdist){
             return {index:i,dist:cdist};
           }
         }
-        return {index:i,dist:cdist};
+        return {index:this.segCount()-1,dist:cdist};
       }
 
       /**
@@ -108,7 +110,9 @@ module.exports = {
       _item:item,
       offset_or_origin:offset_or_origin,
       _poly:false,
-      all_items_index:function(){return item.index},
+      all_items_index:function(){
+        return this._item.index();
+      },
 
       /**
       Used for calculationg overlaps for text along path (textPath SVG).

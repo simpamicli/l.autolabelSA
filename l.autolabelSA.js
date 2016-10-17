@@ -224,8 +224,8 @@
 	      if(!this._autoLabel)return; //nothing to do here
 	      if(this._map.getZoom()>this.options.zoomToStartLabel){
 	        dataReader._map=this._map;
-	        var pt  =dataReader.readDataToLabel(this._map) //array for storing paths and values
-	        var all_items=dataReader.prepareCurSegments(pt,{maxlabelcount:80});
+	        var all_items  =dataReader.readDataToLabel(this._map) //array for storing paths and values
+	        dataReader.prepareCurSegments(all_items,{maxlabelcount:80});
 	        if(all_items.length==0){
 	          this._clearNodes();
 	          return;
@@ -273,16 +273,16 @@
 	      var svg =  this._map.options.renderer._container;  //to work with SVG
 	      this._clearNodes(); //clearscreen
 	      for(var m in labelset){
-	        var node = labelset[m].t.content_node;
-	        var x = labelset[m].pos.x;
-	        var y = labelset[m].pos.y;
-	        node.setAttribute('x', x);
-	        node.setAttribute('y', y);
-	        var transform ='rotate('+ Math.floor(labelset[m].a)+','+Math.floor(x)+','+Math.floor(y)+')';
-	        transform = transform.replace(/ /g, '\u00A0');
-	        node.setAttribute('transform',transform);
-	        svg.appendChild(node);
-	        this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
+	        // var node = labelset[m].t.content_node;
+	        // var x = labelset[m].pos.x;
+	        // var y = labelset[m].pos.y;
+	        // node.setAttribute('x', x);
+	        // node.setAttribute('y', y);
+	        // var transform ='rotate('+ Math.floor(labelset[m].a)+','+Math.floor(x)+','+Math.floor(y)+')';
+	        // transform = transform.replace(/ /g, '\u00A0');
+	        // node.setAttribute('transform',transform);
+	        // svg.appendChild(node);
+	        // this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
 	        if(this.options.showBBoxes){
 	          //here for testing purposes
 	          var polynode = this._createPolygonNode(labelset[m].poly,labelset[m].overlaps);
@@ -454,9 +454,9 @@
 	  @returns {Array}:
 	  */
 	  translateSegment:function(segment, point){
-	    var result=segment.sliuce(0);
+	    var result=segment.slice(0);
 	    result[0] = result[0].add(point);
-	    result[1] = result[2].add(point);
+	    result[1] = result[1].add(point);
 	    return result;
 	  },
 	  /**
@@ -483,7 +483,7 @@
 	  computeSlope: function(a, b) {
 	      var s = (b.y - a.y) / (b.x - a.x),
 	          o = a.y - (s * a.x);
-	      return {a: s, b: o};
+	      return L.point(s,o);
 	  },
 	
 	  getNormalOnSegment:function(segment){
@@ -507,7 +507,7 @@
 	  */
 	  translateByNormal:function(segment,height){
 	    var normal = this.getNormalOnSegment(segment).multiplyBy(height);
-	    return segment.translateSegment(normal);
+	    return this.translateSegment(segment,normal);
 	  },
 	
 	  /**
@@ -537,10 +537,13 @@
 	        firstSeg[0] = this.interpolateOnPointSegment(firstSeg,(start.dist-offset_start)/firstSeg[2].seglen);
 	        var lastSeg;
 	        if(start.index!==end.index){
-	          lastseg = item.getSegment(end.index);
-	          lastseg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
+	          lastSeg = item.getSegment(end.index);
+	          if(!lastSeg[2]){
+	            console.log('qweqwe');
+	          }
+	          lastSeg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
 	        }else{
-	          firstSeg[1]=this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/firstSeg[2].seglen);
+	          firstSeg[1]=this.interpolateOnPointSegment(firstSeg,(end.dist-offset_end)/firstSeg[2].seglen);
 	        }
 	        return {start:start,end:end,firstSeg:firstSeg,lastSeg:lastSeg};
 	  },
@@ -551,8 +554,8 @@
 	  @param {labelItem} item: item layer_type 1 with data and segdata fill
 	  @returns {Array}: array of L.Point
 	  */
-	  extractSubPolylineByOffsetWindow:function(offsetwindow,item){
-	    result = offsetWindow.firstSeg.slice(0,1);
+	  extractSubPolylineByOffsetWindow:function(offsetWindow,item){
+	    var result = offsetWindow.firstSeg.slice(0,1);
 	    if(!offsetWindow.lastSeg)return result; //one segment case
 	    //and if we have segments in between first/last:
 	    for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
@@ -1304,7 +1307,7 @@
 	  */
 	  getInitialRandomState:function(all_items){
 	    var res=[];
-	    for(var i in all_items){
+	    for(var i=0;i<all_items.length;i++){
 	      var candidate = candidateGenerator.computeLabelCandidate(i,all_items);
 	      res.push(candidate);
 	    }
@@ -1355,7 +1358,7 @@
 	          if(overlappedvalues[counter]>0){
 	            curset[i].overlaps = true;
 	            curset[j].overlaps = true;
-	            this.dodebug(curset[i].t.content_node.textContent +' /// '+curset[j].t.content_node.textContent  )
+	            // this.dodebug(curset[i].t.content_node.textContent +' /// '+curset[j].t.content_node.textContent  )
 	          }
 	          counter++;
 	        }
@@ -1560,7 +1563,7 @@
 	  */
 	  computeLabelCandidate:function(i,all_items) {
 	    var candidate;
-	    switch (all_items[i].layertype) {
+	    switch (all_items[i].layer_type()) {
 	      case 0:
 	        break;
 	      case 1:{
@@ -1579,11 +1582,13 @@
 
 /***/ },
 /* 11 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
 	/*
 	modlue to create labelItems convenient for labelling and calculation
 	*/
+	
+	var geomEssentials = __webpack_require__(3);
 	
 	module.exports = {
 	  /**
@@ -1600,7 +1605,7 @@
 	      layer:layer,
 	      host:hostArray,
 	      index:function(){
-	        return host.lastIndexOf(this);
+	        return this.host.lastIndexOf(this);
 	      },
 	      readData:function(){return false}, //a method stub
 	      layer_type:function(){ //return a layer type, where 0 is point, 1 is line, 2 is poly
@@ -1614,7 +1619,7 @@
 	        //   }
 	        // }
 	        // return this._type;
-	        return (layer._parts.length>0)?1:0;
+	        return (this.layer._parts.length>0)?1:0;
 	      }
 	    };
 	
@@ -1643,7 +1648,7 @@
 	      basic_item.totalLength=0;
 	      basic_item.getSegment = function(index,no_segdata){
 	        var a = this.data[index], b = this.data[index+1];
-	        if(ano_segdata)return [a,b];
+	        if(no_segdata)return [a,b];
 	        else return [a,b,this.segdata[index]];
 	      }
 	      basic_item.segCount = function(){
@@ -1659,12 +1664,12 @@
 	      basic_item.getSegmentIdxAndDistByOffset=function(offset){
 	        var cdist=0;
 	        for(var i=0;i<this.segCount();i++){
-	          cdist+=this.getSegment(i)[2];
+	          cdist+=this.getSegment(i)[2].seglen;
 	          if(offset<cdist){
 	            return {index:i,dist:cdist};
 	          }
 	        }
-	        return {index:i,dist:cdist};
+	        return {index:this.segCount()-1,dist:cdist};
 	      }
 	
 	      /**
@@ -1691,7 +1696,9 @@
 	      _item:item,
 	      offset_or_origin:offset_or_origin,
 	      _poly:false,
-	      all_items_index:function(){return item.index},
+	      all_items_index:function(){
+	        return this._item.index();
+	      },
 	
 	      /**
 	      Used for calculationg overlaps for text along path (textPath SVG).

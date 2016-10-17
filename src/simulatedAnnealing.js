@@ -12,7 +12,7 @@ var simulatedAnnealing = {
   */
   getInitialRandomState:function(all_items){
     var res=[];
-    for(var i in all_items){
+    for(var i=0;i<all_items.length;i++){
       var candidate = candidateGenerator.computeLabelCandidate(i,all_items);
       res.push(candidate);
     }
@@ -63,7 +63,7 @@ var simulatedAnnealing = {
           if(overlappedvalues[counter]>0){
             curset[i].overlaps = true;
             curset[j].overlaps = true;
-            this.dodebug(curset[i].t.content_node.textContent +' /// '+curset[j].t.content_node.textContent  )
+            // this.dodebug(curset[i].t.content_node.textContent +' /// '+curset[j].t.content_node.textContent  )
           }
           counter++;
         }

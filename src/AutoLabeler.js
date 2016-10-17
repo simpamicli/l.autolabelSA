@@ -105,8 +105,8 @@ L.AutoLabeler = L.Evented.extend(
       if(!this._autoLabel)return; //nothing to do here
       if(this._map.getZoom()>this.options.zoomToStartLabel){
         dataReader._map=this._map;
-        var pt  =dataReader.readDataToLabel(this._map) //array for storing paths and values
-        var all_items=dataReader.prepareCurSegments(pt,{maxlabelcount:80});
+        var all_items  =dataReader.readDataToLabel(this._map) //array for storing paths and values
+        dataReader.prepareCurSegments(all_items,{maxlabelcount:80});
         if(all_items.length==0){
           this._clearNodes();
           return;
@@ -154,16 +154,16 @@ L.AutoLabeler = L.Evented.extend(
       var svg =  this._map.options.renderer._container;  //to work with SVG
       this._clearNodes(); //clearscreen
       for(var m in labelset){
-        var node = labelset[m].t.content_node;
-        var x = labelset[m].pos.x;
-        var y = labelset[m].pos.y;
-        node.setAttribute('x', x);
-        node.setAttribute('y', y);
-        var transform ='rotate('+ Math.floor(labelset[m].a)+','+Math.floor(x)+','+Math.floor(y)+')';
-        transform = transform.replace(/ /g, '\u00A0');
-        node.setAttribute('transform',transform);
-        svg.appendChild(node);
-        this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
+        // var node = labelset[m].t.content_node;
+        // var x = labelset[m].pos.x;
+        // var y = labelset[m].pos.y;
+        // node.setAttribute('x', x);
+        // node.setAttribute('y', y);
+        // var transform ='rotate('+ Math.floor(labelset[m].a)+','+Math.floor(x)+','+Math.floor(y)+')';
+        // transform = transform.replace(/ /g, '\u00A0');
+        // node.setAttribute('transform',transform);
+        // svg.appendChild(node);
+        // this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
         if(this.options.showBBoxes){
           //here for testing purposes
           var polynode = this._createPolygonNode(labelset[m].poly,labelset[m].overlaps);

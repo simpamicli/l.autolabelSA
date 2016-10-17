@@ -89,9 +89,9 @@ var geomEssentials = {
   @returns {Array}:
   */
   translateSegment:function(segment, point){
-    var result=segment.sliuce(0);
+    var result=segment.slice(0);
     result[0] = result[0].add(point);
-    result[1] = result[2].add(point);
+    result[1] = result[1].add(point);
     return result;
   },
   /**
@@ -118,7 +118,7 @@ var geomEssentials = {
   computeSlope: function(a, b) {
       var s = (b.y - a.y) / (b.x - a.x),
           o = a.y - (s * a.x);
-      return {a: s, b: o};
+      return L.point(s,o);
   },
 
   getNormalOnSegment:function(segment){
@@ -142,7 +142,7 @@ var geomEssentials = {
   */
   translateByNormal:function(segment,height){
     var normal = this.getNormalOnSegment(segment).multiplyBy(height);
-    return segment.translateSegment(normal);
+    return this.translateSegment(segment,normal);
   },
 
   /**
@@ -172,10 +172,13 @@ var geomEssentials = {
         firstSeg[0] = this.interpolateOnPointSegment(firstSeg,(start.dist-offset_start)/firstSeg[2].seglen);
         var lastSeg;
         if(start.index!==end.index){
-          lastseg = item.getSegment(end.index);
-          lastseg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
+          lastSeg = item.getSegment(end.index);
+          if(!lastSeg[2]){
+            console.log('qweqwe');
+          }
+          lastSeg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
         }else{
-          firstSeg[1]=this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/firstSeg[2].seglen);
+          firstSeg[1]=this.interpolateOnPointSegment(firstSeg,(end.dist-offset_end)/firstSeg[2].seglen);
         }
         return {start:start,end:end,firstSeg:firstSeg,lastSeg:lastSeg};
   },
@@ -186,8 +189,8 @@ var geomEssentials = {
   @param {labelItem} item: item layer_type 1 with data and segdata fill
   @returns {Array}: array of L.Point
   */
-  extractSubPolylineByOffsetWindow:function(offsetwindow,item){
-    result = offsetWindow.firstSeg.slice(0,1);
+  extractSubPolylineByOffsetWindow:function(offsetWindow,item){
+    var result = offsetWindow.firstSeg.slice(0,1);
     if(!offsetWindow.lastSeg)return result; //one segment case
     //and if we have segments in between first/last:
     for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
