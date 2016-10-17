@@ -26,12 +26,15 @@ var dataReader = {
           if(layer.feature.properties[lg._al_options.propertyName]){
             var node = DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle),
                 size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-            var firstItem = itemFactory.labelItem(node,size,layer,pt), nextPartIndex=firstItem.readData();
-            pt.push(firstItem);
-            while(nextPartIndex){
-              var item = itemFactory.labelItem(node,size,layer,pt); //create node template
-              nextPartIndex=item.readData(nextPartIndex);
-              pt.push(item);
+            var firstItem = itemFactory.labelItem(node,size,layer,pt)
+            if(firstItem){
+              var nextPartIndex=firstItem.readData();
+              pt.push(firstItem);
+              while(nextPartIndex){
+                var item = itemFactory.labelItem(node,size,layer,pt); //create node template
+                nextPartIndex=item.readData(nextPartIndex);
+                pt.push(item);
+              }
             }
           }
         });
@@ -58,7 +61,7 @@ var dataReader = {
         continue;
       }
       //else compute for lines and polygons, now it is only fo lines
-      if(item.layertype==1){
+      if(item.layer_type()==1){
         this._applyLineFeatureData(item); //in case where two or move separate polylines generated for original polyline while rendering (imagine big W cutted by screen iwndow)
       }
     }
@@ -72,9 +75,10 @@ var dataReader = {
   _applyLineFeatureData:function(item){ //calculate some data once to increase performance
       item.totalLength=0;
       for(var k=1;k<item.data.length;k++){
-        var a = item.data[k-1], b = item.data[k];
-        item.segdata.push(geomEssentials.computeSegDataLenAngle(a,b));
-        item.totalLength+=ablen;
+        var a = item.data[k-1], b = item.data[k],
+            seg = geomEssentials.computeSegDataLenAngle(a,b);
+        item.segdata.push(seg);
+        item.totalLength+=seg.seglen;
       }
   },
 

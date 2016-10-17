@@ -11,6 +11,7 @@ module.exports = {
   */
   labelItem:function(txNode,txSize,layer,hostArray){
     var basic_item= {
+      data:[],
       txNode:txNode,
       txSize:txSize,
       layer:layer,
@@ -20,29 +21,41 @@ module.exports = {
       },
       readData:function(){return false}, //a method stub
       layer_type:function(){ //return a layer type, where 0 is point, 1 is line, 2 is poly
-        if(layer instanceof  L.CircleMarker || L.Marker)
-        return 0;
-        if(layer instanceof L.Polyline)
-        return 1;
-        if(layer instanceof L.Polygon)
-        return 2;
+        // if(!this._type){
+        //   if(layer instanceof  L.CircleMarker || L.Marker){
+        //     this._type= 0;
+        //   }else if(layer instanceof L.Polyline){
+        //     this._type= 1;
+        //   }else if(layer instanceof L.Polygon){
+        //     this._type= 2;
+        //   }
+        // }
+        // return this._type;
+        return (layer._parts.length>0)?1:0;
       }
     };
 
     if(basic_item.layer_type()==0){
-      //basic_item.data=layer._map.latLngToLayerPoint(layer.getLatLngs()); //so we adding only L.Point obj
+      return;
+      basic_item.readData = function(){
+        if(basic_item.layer.getLatLngs())
+        basic_item.data=basic_item.layer._map.latLngToLayerPoint(basic_item.layer.getLatLngs()[0]); //so we adding only L.Point obj
+      }
     }else{
       //this give possibility to read all parts to separate items
       basic_item.readData=function(partIndex){ //to read consequently
         if(!partIndex){var partIndex=0;};
         this.data = this.layer._parts[partIndex];
         this.partIndex=partIndex; //store this to have ability to compute totalOffset, for example
-        var nextPart=partIndex++;
+        var nextPart=++partIndex;
         if(nextPart<this.layer._parts.length)return nextPart;else return false;
       }
     }
 
     if(basic_item.layer_type()==1){
+
+      if(basic_item.layer._parts.length==0)return;
+
       basic_item.segdata=[];
       basic_item.totalLength=0;
       basic_item.getSegment = function(index,no_segdata){

@@ -77,8 +77,8 @@ var geomEssentials = {
   @returns {Object}:
   */
   computeSegDataLenAngle:function(a,b){
-    ablen = a.distanceTo(b), //compute segment length only once
-    abangle = this.computeAngle(a,b,true); //same for angles
+    var ablen = a.distanceTo(b), //compute segment length only once
+        abangle = this.computeAngle(a,b,true); //same for angles
     return {seglen:ablen,angle:abangle};
   },
 
