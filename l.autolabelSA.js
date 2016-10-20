@@ -243,7 +243,7 @@
 	      var node = L.SVG.create('polygon');
 	      var points='';
 	      for(var i=0;i<poly.length;i++){
-	        points+=poly[i][0]+','+poly[i][1]+' ';
+	        points+=poly[i].x+','+poly[i].y+' ';
 	      }
 	      node.setAttribute('points', points.trim());
 	      if(highlited){
@@ -285,7 +285,7 @@
 	        // this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
 	        if(this.options.showBBoxes){
 	          //here for testing purposes
-	          var polynode = this._createPolygonNode(labelset[m].poly,labelset[m].overlaps);
+	          var polynode = this._createPolygonNode(labelset[m].poly(),labelset[m].overlaps);
 	          svg.appendChild(polynode);
 	          this._nodes.push(polynode); //add this polygon to _nodes array, so we can erase it from the screen later
 	        }
@@ -496,6 +496,8 @@
 	  },
 	
 	  normalizePt:function(pt){
+	    var res = this.get2dVectorLength(pt);
+	    var res1 = pt.divideBy(res);
 	    return (pt.x===0&&pt.y===0)?0:pt.divideBy(this.get2dVectorLength(pt));
 	  },
 	
@@ -588,7 +590,7 @@
 	  computeLineBoundaryPolygon:function(start_offset,end_offset,item){
 	    var offsetWindow = geomEssentials.getOffsetWindowOnPolylineWithBorderSegments(start_offset,end_offset,item);
 	    var lower_boundary = geomEssentials.extractSubPolylineByOffsetWindow(offsetWindow,item);
-	    var upper_boundary=geomEssentials.translateByNormal(offsetWindow.firstSeg,item.txSize.y); //[a,b]
+	    var upper_boundary=geomEssentials.translateByNormal(offsetWindow.firstSeg,item.txSize).slice(0,1); //[a,b]
 	    if(offsetWindow.lastSeg){
 	      for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
 	        var curSegment=geomEssentials.translateByNormal(item.getSegment(i,true),item.txSize.y); //only segpoints
@@ -597,6 +599,9 @@
 	      upper_boundary.push(geomEssentials.translateByNormal(offsetWindow.lastSeg,item.txSize.y)[1]); //[a,b]);
 	    }
 	    Array.prototype.push.apply(lower_boundary, upper_boundary.reverse());
+	    for(var m in lower_boundary)if(isNaN(lower_boundary[m].x)){
+	      console.log('NAN!');
+	    }
 	    return lower_boundary;
 	  },
 	

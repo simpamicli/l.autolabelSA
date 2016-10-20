@@ -124,7 +124,7 @@ L.AutoLabeler = L.Evented.extend(
       var node = L.SVG.create('polygon');
       var points='';
       for(var i=0;i<poly.length;i++){
-        points+=poly[i][0]+','+poly[i][1]+' ';
+        points+=poly[i].x+','+poly[i].y+' ';
       }
       node.setAttribute('points', points.trim());
       if(highlited){
@@ -166,7 +166,7 @@ L.AutoLabeler = L.Evented.extend(
         // this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
         if(this.options.showBBoxes){
           //here for testing purposes
-          var polynode = this._createPolygonNode(labelset[m].poly,labelset[m].overlaps);
+          var polynode = this._createPolygonNode(labelset[m].poly(),labelset[m].overlaps);
           svg.appendChild(polynode);
           this._nodes.push(polynode); //add this polygon to _nodes array, so we can erase it from the screen later
         }

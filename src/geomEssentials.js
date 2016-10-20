@@ -131,6 +131,8 @@ var geomEssentials = {
   },
 
   normalizePt:function(pt){
+    var res = this.get2dVectorLength(pt);
+    var res1 = pt.divideBy(res);
     return (pt.x===0&&pt.y===0)?0:pt.divideBy(this.get2dVectorLength(pt));
   },
 
@@ -223,7 +225,7 @@ var geomEssentials = {
   computeLineBoundaryPolygon:function(start_offset,end_offset,item){
     var offsetWindow = geomEssentials.getOffsetWindowOnPolylineWithBorderSegments(start_offset,end_offset,item);
     var lower_boundary = geomEssentials.extractSubPolylineByOffsetWindow(offsetWindow,item);
-    var upper_boundary=geomEssentials.translateByNormal(offsetWindow.firstSeg,item.txSize.y); //[a,b]
+    var upper_boundary=geomEssentials.translateByNormal(offsetWindow.firstSeg,item.txSize).slice(0,1); //[a,b]
     if(offsetWindow.lastSeg){
       for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
         var curSegment=geomEssentials.translateByNormal(item.getSegment(i,true),item.txSize.y); //only segpoints
@@ -232,6 +234,9 @@ var geomEssentials = {
       upper_boundary.push(geomEssentials.translateByNormal(offsetWindow.lastSeg,item.txSize.y)[1]); //[a,b]);
     }
     Array.prototype.push.apply(lower_boundary, upper_boundary.reverse());
+    for(var m in lower_boundary)if(isNaN(lower_boundary[m].x)){
+      console.log('NAN!');
+    }
     return lower_boundary;
   },
 
