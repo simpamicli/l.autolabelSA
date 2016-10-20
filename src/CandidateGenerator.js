@@ -6,11 +6,11 @@ var candidateGenerator = {
     lineDiscreteStepPx:3
   },
 
-  obtainCandidateForPoint(point){
+  obtainCandidateForPoint:function(point){
     //TODO[obtainCandidateForPoint]
   },
 
-  obtainCandidateForPoly(polygon){
+  obtainCandidateForPoly:function(polygon){
     //TODO[obtainCandidateForPoly]
   },
 

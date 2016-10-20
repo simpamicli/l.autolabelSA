@@ -1,9 +1,13 @@
+var webpack=require('webpack');
 module.exports = {
     entry: "./src/MapPart.js",
     output: {
-        path: "./",		
+        path: "./",
 		publicPath: "./",
         filename: "l.autolabelSA.js"
     },
-	devtool: 'source-map'
+	devtool: 'source-map',
+	plugins:[
+		new webpack.optimize.UglifyJsPlugin()
+	]
 };

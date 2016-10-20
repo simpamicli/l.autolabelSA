@@ -111,7 +111,9 @@ L.AutoLabeler = L.Evented.extend(
           this._clearNodes();
           return;
         }
-        simulatedAnnealing.perform(all_items,this.options.annealingOptions,this._renderNodes,this);
+        var curset = simulatedAnnealing.getInitialRandomState(all_items);
+        this._renderNodes(curset);
+        //simulatedAnnealing.perform(all_items,this.options.annealingOptions,this._renderNodes,this);
       }else{
         this._clearNodes();
       }
