@@ -6,8 +6,6 @@ module.exports = {
 		publicPath: "./",
         filename: "l.autolabelSA.js"
     },
-	devtool: 'source-map',
-	plugins:[
-		new webpack.optimize.UglifyJsPlugin()
-	]
+	devtool: 'source-map'
+	
 };

@@ -31,18 +31,27 @@ var geomEssentials = {
     return result;
   },
 
+  computeCanonicCoeffs:function(start,finish){
+    var ABC=[];
+    ABC.push(start.y-finish.y);
+    ABC.push(finish.x - start.x);
+    ABC.push(start.x * finish.y - finish.x * start.y);
+    return ABC;
+  },
+
   /**
-  code from L.GeometryUtil plugin
-       Returns slope (Ax+B) between two points.
+        Returns slope (Ax+B) between two points, safe for degenerate cases
         @param {L.Point} a
         @param {L.Point} b
         @returns {Object} with ``a`` and ``b`` properties.
      */
-  computeSlope: function(a, b) {
-      var s = (b.y - a.y) / (b.x - a.x),
-          o = a.y - (s * a.x);
-      return L.point(s,o);
+  computeSlope: function(start, finish) {
+     var abc = this.computeCanonicCoeffs(a,b); //ax+by+c=0 => y=-a/b x - c/b
+     if(abc[1]!=0){
+       return L.point(-abc[0]/abc[1],-abc[2]/abc[1]);
+     }
   },
+
 
   /**
   computes a point where two lines intersection
@@ -53,10 +62,13 @@ var geomEssentials = {
   @returns {L.Point} :intersection point or null if lines are parallel to each other
   */
   lineIntersection:function(a,b,c,d){
-    var slope1=this.computeSlope(a,b), slope2=this.computeSlope(c,d);
-    if(slope1.x===slope2.x)return;
-    var x = (slope2.y - slope1.y) / (slope1.x - slope2.x);
-    var y = slope1.x*x + slope1.y;
+    var abc1=this.computeCanonicCoeffs(a,b),abc2 = this.computeCanonicCoeffs(c,d);
+    var denominator = abc1[0]*abc2[1] - abc2[0]*abc1[1];
+    if(denominator==0){
+      return;
+    }
+    var x = -(abc1[2]*abc2[1] - abc2[2]*abc1[1])/denominator;
+    var y = -(abc1[0]*abc2[2] - abc2[0]*abc1[2])/denominator;
     return L.point(x,y);
   },
 
@@ -67,8 +79,9 @@ var geomEssentials = {
     @returns {L.point}: unit normal
   */
   getNormalOnSegment:function(a,b){
-    var slope = this.computeSlope(a,b);
-    return this.normalizePt(slope);
+    var abc=this.computeCanonicCoeffs(a,b);
+    var normal = L.point(abc[0],abc[1]);
+    return this.normalizePt(normal);
   },
 
   /**
@@ -86,7 +99,7 @@ var geomEssentials = {
   @returns {L.Point}:
   */
   normalizePt:function(pt){
-    return (pt.x===0&&pt.y===0)?0:pt.divideBy(this.get2dVectorLength(pt));
+    return (pt.x===0&&pt.y===0)?L.point(0,0):pt.divideBy(this.get2dVectorLength(pt));
   },
 
   /**
@@ -118,10 +131,11 @@ var geomEssentials = {
   @memberof geomEssentials#
   */
   interpolateOnPointSegment: function (a,b, ratio) {
-      return L.point(
+      var res= L.point(
           (a.x * (1 - ratio)) + (ratio * b.x),
           (a.y * (1 - ratio)) + (ratio * b.y)
       );
+      return res;
   },
 
   /**
@@ -176,7 +190,7 @@ var geomEssentials = {
         start_point= this.interpolateOnPointSegment(polyline[start[0]],polyline[start[0]+1],(start[1]-offset_start)/computed_lengths[start[0]]),
         end_point = this.interpolateOnPointSegment(polyline[end[0]],polyline[end[0]+1],(end[1]-offset_end)/computed_lengths[end[0]]),
         result = [start_point];
-    for(var i=start[0]+1;i<=end[0];i++){ //push every point from end of start segment to segment prior to last
+    for(var i=start[0]+1;i<end[0];i++){ //push every point from end of start segment to segment prior to last
       result.push(polyline[i]);
     }
     result.push(end_point);
