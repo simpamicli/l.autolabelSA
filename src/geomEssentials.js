@@ -7,105 +7,28 @@ var greinerHormann = require('./third_party/GreinerHormann');
 var geomEssentials = {
 
   /**
-  makes x and y integer
+  @param {Array} polyline: consists of L.Point
+  @returns {Array}: number array with length=polyline.length-1 with length of segs
   */
-  roundPoint:function(p){
-    var res= L.point(Math.round(p.x),Math.round(p.y));
-    return res;
-  },
-
-  /**
-  scales bounds by multiplying it's size with scalefactor, and keeping center
-  */
-  scaleBounds:function(bounds,scalefactor){
-    var origin = bounds.getCenter();
-    var newHalfSize = bounds.getSize().multiplyBy(scalefactor/2);
-    var newTopLeft = origin.subtract(newHalfSize);
-    var newBotRight = origin.add(newHalfSize);
-    return L.bounds(this.roundPoint(newTopLeft),this.roundPoint(newBotRight));
-  },
-
-  /**
-  the name is the description
-  */
-  getBoundsWithoutPadding(themap,scaleafter){
-    var bounds =themap.options.renderer._bounds;
-    //to get zero padding we should scale bounds by 1 / (1 + current_padding), and then we want to scale by scaleafter
-    //for example, default padding is 0.1, which means 110% of map container pixel bounds to render, so zise of basic ixels bounds is multiplied by 1.1getPixelBounds()
-    var current_padding = themap.options.renderer.padding || 0.1;
-    var scale_to_apply = scaleafter/(1+current_padding);
-    return this.scaleBounds(bounds,scaleafter);
-    //return bounds;
-  },
-
-  /**
-  moves a poly by adding pt2add point to all its vertices
-  @param {Array} poly: a poly to movePoly
-  @param {Array} pt2add: a point to add to all vertices
-  @returns {Array}: moved poly
-  @memberof geomEssentials#
-  */
-  movePolyByAdding:function(poly,pt2add) {
-    var res=poly.slice(0);
-    for(var i=0;i<poly.length;i++){
-      res[i][0]+=pt2add[0]; res[i][1]+=pt2add[1];
+  computeSegmentsLengths:function(polyline){
+    var result=[];
+    for(var k=1;k<polyline.length;k++){
+      result.push(polyline[k].distanceTo(polyline[k-1]));
     }
-    return res;
-  },
-
-  /**
-  moves a poly by translating all its vertices to moveto, using first vertex as origin
-  @param {Array} poly: a poly to movePoly
-  @param {Array} moveto: where translate all vertices
-  @returns {Array}: moved poly
-  @memberof geomEssentials#
-  */
-  movePolyByMovingTo:function(poly,moveto){
-    var res=poly.slice(0);
-    moveto[0] = moveto[0]-poly[0][0];
-    moveto[1] = moveto[1]-poly[0][1];
-    for(var i=1;i<poly.length;i++){
-      res[i][0]+=moveto[0]; res[i][1]+=moveto[1];
-    }
-    return res;
-  },
-
-  /**
-  returns {seglen, angle} data structure for a,b segment
-  @param {L.Point} a: start point
-  @param {L.Point} b: fin point
-  @returns {Object}:
-  */
-  computeSegDataLenAngle:function(a,b){
-    var ablen = a.distanceTo(b), //compute segment length only once
-        abangle = this.computeAngle(a,b,true); //same for angles
-    return {seglen:ablen,angle:abangle};
-  },
+    return result;
+  }
 
   /**
   translates segment to new loc by adding point to its vertices
-  @param {Array} segment:
+  @param {L.Point} a:
+  @param {L.Point} b:
   @param {L.Point} point:
   @returns {Array}:
   */
-  translateSegment:function(segment, point){
-    var result=segment.slice(0);
-    result[0] = result[0].add(point);
-    result[1] = result[1].add(point);
+  translateSegment:function(a,b, point){
+    var result=[];
+    result.push(a.add(point)); result.push(b.add(point));
     return result;
-  },
-  /**
-  code from L.GeometryUtil plugin
-  @memberof geomEssentials#
-  */
-  computeAngle: function(a, b, check_left_to_right) {
-      var x1 = a.x, x2 = b.x;
-      if(check_left_to_right){
-        if(x1>x2){
-          var tmp=x1; x1=x2; x2=tmp;
-        }
-      }
-      return (Math.atan2(b.y - a.y, x2 - x1) * 180 / Math.PI);
   },
 
   /**
@@ -121,98 +44,140 @@ var geomEssentials = {
       return L.point(s,o);
   },
 
-  getNormalOnSegment:function(segment){
-    var slope = this.computeSlope(segment[0],segment[1]);
+  /**
+  computes a point where two lines intersection
+  @param {L.Point} a: a first point of first line defined by two points
+  @param {L.Point} b: a second point of first line defined by two points
+  @param {L.Point} c: a first point of second line defined by two points
+  @param {L.Point} d: a first point of second line defined by two points
+  @returns {L.Point} :intersection point or null if lines are parallel to each other
+  */
+  lineIntersection:function(a,b,c,d){
+    var slope1=this.computeSlope(a,b), slope2=this.computeSlope(c,d);
+    if(slope1.x===slope2.x)return;
+    return L.point((slope2.y - slope1.y) / (slope11.x - slope2.x),slope1.x*x + slope1.y);
+  },
+
+  /**
+    computes a  unit normal for [a,b] segment
+    @param {L.Point} a:
+    @param {L.Point} b:
+    @returns {L.point}: unit normal
+  */
+  getNormalOnSegment:function(a,b){
+    var slope = this.computeSlope(a,b);
     return this.normalizePt(slope);
   },
 
+  /**
+  Computes an euclidian length of point
+  @param {L.Point} pt:
+  @returns {Number}
+  */
   get2dVectorLength:function(pt){
     return Math.sqrt(pt.x*pt.x + pt.y*pt.y);
   },
 
+  /**
+  Makes this point a unit-lengthed
+  @param {L.Point} pt:
+  @returns {L.Point}:
+  */
   normalizePt:function(pt){
-    var res = this.get2dVectorLength(pt);
-    var res1 = pt.divideBy(res);
     return (pt.x===0&&pt.y===0)?0:pt.divideBy(this.get2dVectorLength(pt));
   },
 
   /**
   copies segment and translates copy in normal direction by height value (may be negative)
-  @param {Array} segment: a segment to translates
-  @param {Number} height: how factory
-  @returns {Array}: translated copy of segment
+  It also extands or shrinks new segments to make sure they are connected to each and other
+  @param {Array} polyline: polyline to translate segments of which
+  @param {Number} height:  height of normal
+  @returns {Array}: translated copy of polyline
   */
-  translateByNormal:function(segment,height){
-    var normal = this.getNormalOnSegment(segment).multiplyBy(height);
-    return this.translateSegment(segment,normal);
+  translateByNormal:function(polyline,height){
+    var out_polyline=[];
+    for(var i=0;i<polyline.length-1;i++){
+      var normal = this.getNormalOnSegment(polyline[i],polyline[i+1]).multiplyBy(height);
+      var current_segment=this.translateSegment(polyline[i],polyline[i+1],normal);
+      //now check if current segment is connected well to previous
+      if(i>0){ //so -> it isn't first segment, and out_polyline has at leat two points
+        var pt_intersect = this.lineIntersection(out_polyline[out_polyline.length-2],out_polyline[out_polyline.length-1],current_segment[0],current_segment[1]);
+        out_polyline[out_polyline.length-1] = pt_intersect;
+        out_polyline.push(current_segment[1]);
+      }else{
+        out_polyline.push(current_segment[0]); out_polyline.push(current_segment[1]);
+      }
+    }
+    return out_polyline;
   },
 
   /**
   code from L.GeometryUtil plugin
   @memberof geomEssentials#
   */
-  interpolateOnPointSegment: function (segment, ratio) {
+  interpolateOnPointSegment: function (a,b, ratio) {
       return L.point(
-          (segment[0].x * (1 - ratio)) + (ratio * segment[1].x),
-          (segment[0].y * (1 - ratio)) + (ratio * segment[1].y)
+          (a.x * (1 - ratio)) + (ratio * b.x),
+          (a.y * (1 - ratio)) + (ratio * b.y)
       );
+  },
+
+  /**
+  Get a segment from polyline part by it's offset
+  @param {Number} offset: na offset for the polyline
+  @param {Array} polyline: points of the polyline
+  @param {Array} computed_lengths: precomputed lengths (if available) for polyline segments
+  @returns {Array} : index of start point of segment and dist which is offset from start of the line to the end of found segment
+  */
+  getSegmentIdxAndDistByOffset:function(offset,polyline,computed_lengths){
+    var cdist=0;
+    for(var i=0;i<polyline.length-1;i++){
+      cdist+=computed_lengths[i];
+      if(offset<=cdist){
+        return [i,cdist]
+      }
+    }
+  },
+
+  /**
+  based on https://blog.dotzero.ru/weighted-random-simple/
+  get a random element from segments array of the item, assuming it is sorted lengths ascending order
+  probability is higher for longer segment
+  @param {Array} polyline: points of the polyline
+  @param {Array} computed_lengths: precomputed lengths (if available) for polyline segments
+  @param {NUmber} totalLength: precomputed total length of the polyline
+  */
+  getIndexBasedOnTotalLengthRandom:function(polyline,computed_lengths,totalLength){
+    var random_pos = Math.random()*totalLength; //get a position random for all segments of this polyline visible on the screen
+    //obtain and index of segment, to which belongs this position, it is assumed tha segments are sorted by length
+    var clen=0;
+    for(var i=0;i<polyline.length-1;i++){
+      clen+=computed_lengths[i];
+      if(clen>random_pos)break;
+    }
+    return i;
   },
 
   /**
   Supplement function for extractSubPolyline
   returns start index, end index in segments array for item, also first cropped seg and last cropped seg.
   If only one seg here, it is crop both ends.
-  @param {Number} offset_start:
-  @param {Number} offset_end:
-  @param {labelItem} item: item layer_type 1 with data and segdata fill
+  @param {Number} offset_start: should be less than total length of polyline
+  @param {Number} offset_end: should be greater than offset_start
+  @param {Array} polyline: points of the polyline
+  @param {Array} computed_lengths: precomputed lengths (if available) for polyline segments
   @returns {Object}:
   */
-  getOffsetWindowOnPolylineWithBorderSegments:function(offset_start,offset_end,item){
+  extractSubPolylineByOffsetValues:function(offset_start,offset_end,polyline,computed_lengths){
     var start = item.getSegmentIdxAndDistByOffset(offset_start),
         end = item.getSegmentIdxAndDistByOffset(offset_end),
-        firstSeg = item.getSegment(start.index);
-        firstSeg[0] = this.interpolateOnPointSegment(firstSeg,(start.dist-offset_start)/firstSeg[2].seglen);
-        var lastSeg;
-        if(start.index!==end.index){
-          lastSeg = item.getSegment(end.index);
-          if(!lastSeg[2]){
-            console.log('qweqwe');
-          }
-          lastSeg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
-        }else{
-          firstSeg[1]=this.interpolateOnPointSegment(firstSeg,(end.dist-offset_end)/firstSeg[2].seglen);
+        start_point= this.interpolateOnPointSegment(polyline.data[start[0]],polyline.data[start[0]+1],(start[1]-offset_start)/computed_lengths[start[0]]),
+        end_point = this.interpolateOnPointSegment(polyline.data[end[0]],polyline.data[end[0]+1],(end[1]-offset_end)/computed_lengths[end[0]]),
+        result = [start_point];
+        for(var i=start[0]+1;i<=end[0];i++){ //push every point from end of start segment to segment prior to last
+          result.push(polyline.data[i]);
         }
-        return {start:start,end:end,firstSeg:firstSeg,lastSeg:lastSeg};
-  },
-
-  /**
-  extracts sub-polyline frim give item's data line
-  @param {Object} offsetwindow:
-  @param {labelItem} item: item layer_type 1 with data and segdata fill
-  @returns {Array}: array of L.Point
-  */
-  extractSubPolylineByOffsetWindow:function(offsetWindow,item){
-    var result = offsetWindow.firstSeg.slice(0,1);
-    if(!offsetWindow.lastSeg)return result; //one segment case
-    //and if we have segments in between first/last:
-    for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
-      var segment = item.getSegment(i);
-      result.push(segment[1]);
-    }
-    result.push(offsetWindow.lastSeg[1]);
-    return result;
-  },
-
-  /**
-  extracts sub-polyline frim give item's data line
-  @param {Number} offset_start:
-  @param {Number} offset_end:
-  @param {labelItem} item: item layer_type 1 with data and segdata fill
-  @returns {Array}: array of L.Point
-  */
-  extractSubPolylineByOffsetValues:function(offset_start,offset_end,item){
-    var offsetWindow = this.getOffsetWindowOnPolylineWithBorderSegments(offset_start, offset_end, item);
-    return this.extractSubPolylineByOffsetWindow(offsetWindow);
+        result.push(end_point);
   },
 
   /**
@@ -222,10 +187,8 @@ var geomEssentials = {
   @param {LabelItem} item:
   @returns {Array} : a poly bounding with height of item.txSize.y
   */
-  computeLineBoundaryPolygon:function(start_offset,end_offset,item){
-    var offsetWindow = geomEssentials.getOffsetWindowOnPolylineWithBorderSegments(start_offset,end_offset,item);
-    var lower_boundary = geomEssentials.extractSubPolylineByOffsetWindow(offsetWindow,item);
-    var upper_boundary=geomEssentials.translateByNormal(offsetWindow.firstSeg,item.txSize).slice(0,1); //[a,b]
+  computeLineBoundaryPolygon:function(polyline,height){
+    var upper_boundary=geomEssentials.translateByNormals(polyline,height); //[a,b]
     if(offsetWindow.lastSeg){
       for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
         var curSegment=geomEssentials.translateByNormal(item.getSegment(i,true),item.txSize.y); //only segpoints
@@ -238,35 +201,6 @@ var geomEssentials = {
       console.log('NAN!');
     }
     return lower_boundary;
-  },
-
-  /**
-  computes a point where two lines intersection
-  @param {Array} seg1: a first line defined by two points
-  @param {Array} seg2: a second line defined by two points
-  @return {L.Point} :intersection point or null if lines are parallel to each other
-  */
-  lineIntersection:function(seg1,seg2){
-    var slope1=this.computeSlope(seg1[0],seg1[1]);
-    var slope2=this.computeSlope(seg2[0],seg2[1]);
-    if(slope1.x===slope2.x)return;
-    var x = (slope2.y - slope1.y) / (slope11.x - slope2.x);
-    var y = slope1.x*x + slope1.y;
-    return L.point(x,y);
-  },
-
-  /**
-  expangs a segment withing length in direction from seg[0] to seg[1]
-  @param {Array} segment: a segment defined by two points
-  @param {Number} length:how much increase segment len, should be positive
-  @return {Array} : expanded segment
-  */
-  expandSegment:function(segment,length){
-    var res=segment.slice(0);
-    if(length>0){
-      res[1]=this.interpolateOnPointSegment(segment,(length + segment[2].seglen)/segment[2].seglen);
-    }
-    return res;
   },
 
   clipPoly:function(poly1,poly2){
@@ -346,6 +280,38 @@ var geomEssentials = {
       x_rotated = Math.cos(angleRad)*(pPoint[0]-basepoint[0]) - Math.sin(angleRad)*(pPoint[1]-basepoint[1]) + basepoint[0],
       y_rotated = Math.sin(angleRad)*(pPoint[0]-basepoint[0]) + Math.cos(angleRad)*(pPoint[1]-basepoint[1]) + basepoint[1];
       res.push([x_rotated,y_rotated]);
+    }
+    return res;
+  },
+
+  /**
+  moves a poly by adding pt2add point to all its vertices
+  @param {Array} poly: a poly to movePoly
+  @param {Array} pt2add: a point to add to all vertices
+  @returns {Array}: moved poly
+  @memberof geomEssentials#
+  */
+  movePolyByAdding:function(poly,pt2add) {
+    var res=poly.slice(0);
+    for(var i=0;i<poly.length;i++){
+      res[i][0]+=pt2add[0]; res[i][1]+=pt2add[1];
+    }
+    return res;
+  },
+
+  /**
+  moves a poly by translating all its vertices to moveto, using first vertex as origin
+  @param {Array} poly: a poly to movePoly
+  @param {Array} moveto: where translate all vertices
+  @returns {Array}: moved poly
+  @memberof geomEssentials#
+  */
+  movePolyByMovingTo:function(poly,moveto){
+    var res=poly.slice(0);
+    moveto[0] = moveto[0]-poly[0][0];
+    moveto[1] = moveto[1]-poly[0][1];
+    for(var i=1;i<poly.length;i++){
+      res[i][0]+=moveto[0]; res[i][1]+=moveto[1];
     }
     return res;
   },

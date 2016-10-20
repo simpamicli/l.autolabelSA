@@ -74,21 +74,10 @@ var dataReader = {
   */
   _applyLineFeatureData:function(item){ //calculate some data once to increase performance
       item.totalLength=0;
-      for(var k=1;k<item.data.length;k++){
-        var a = item.data[k-1], b = item.data[k],
-            seg = geomEssentials.computeSegDataLenAngle(a,b);
-        item.segdata.push(seg);
-        item.totalLength+=seg.seglen;
+      item.computed_lengths = geomEssentials.computeSegmentsLengths(item.data);
+      for(var k=0;k<item.computed_lengths.length;k++){
+        item.totalLength+=item.computed_lengths[k];
       }
-  },
-
-  _getLineSegmentBoundaryPoly:function(item){
-    //TODO [_getLineSegmentBoundaryPoly]
-    // var labelLength = item.t.poly[2][0];
-  },
-
-  prepareGeneralConflictGraph:function(all_segs){
-    //TODO[prepareGeneralConflictGraph]
   }
 }
 

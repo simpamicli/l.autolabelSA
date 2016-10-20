@@ -118,7 +118,7 @@
 /***/ function(module, exports, __webpack_require__) {
 
 	var DOMEssentials = __webpack_require__(2);
-	var geomEssentials = __webpack_require__(3);
+	var geomEssentials = __webpack_require__(!(function webpackMissingModule() { var e = new Error("Cannot find module \"./geomEssentials.js\""); e.code = 'MODULE_NOT_FOUND'; throw e; }()));
 	var simulatedAnnealing = __webpack_require__(9);
 	var dataReader = __webpack_require__(12);
 	
@@ -308,7 +308,7 @@
 	//a class to compute pixel dimensions of texts
 	/** @namespace DOMEssentials*/
 	'use strict';
-	var geomEssentials = __webpack_require__(3);
+	var geomEssentials = __webpack_require__(!(function webpackMissingModule() { var e = new Error("Cannot find module \"./geomEssentials.js\""); e.code = 'MODULE_NOT_FOUND'; throw e; }()));
 	
 	module.exports = {
 	  /**
@@ -360,947 +360,18 @@
 
 
 /***/ },
-/* 3 */
-/***/ function(module, exports, __webpack_require__) {
-
-	//a class to perfrom geometric stuff
-	/** @namespace geomEssentials*/
-	'use strict';
-	
-	var greinerHormann = __webpack_require__(4);
-	
-	var geomEssentials = {
-	
-	  /**
-	  makes x and y integer
-	  */
-	  roundPoint:function(p){
-	    var res= L.point(Math.round(p.x),Math.round(p.y));
-	    return res;
-	  },
-	
-	  /**
-	  scales bounds by multiplying it's size with scalefactor, and keeping center
-	  */
-	  scaleBounds:function(bounds,scalefactor){
-	    var origin = bounds.getCenter();
-	    var newHalfSize = bounds.getSize().multiplyBy(scalefactor/2);
-	    var newTopLeft = origin.subtract(newHalfSize);
-	    var newBotRight = origin.add(newHalfSize);
-	    return L.bounds(this.roundPoint(newTopLeft),this.roundPoint(newBotRight));
-	  },
-	
-	  /**
-	  the name is the description
-	  */
-	  getBoundsWithoutPadding(themap,scaleafter){
-	    var bounds =themap.options.renderer._bounds;
-	    //to get zero padding we should scale bounds by 1 / (1 + current_padding), and then we want to scale by scaleafter
-	    //for example, default padding is 0.1, which means 110% of map container pixel bounds to render, so zise of basic ixels bounds is multiplied by 1.1getPixelBounds()
-	    var current_padding = themap.options.renderer.padding || 0.1;
-	    var scale_to_apply = scaleafter/(1+current_padding);
-	    return this.scaleBounds(bounds,scaleafter);
-	    //return bounds;
-	  },
-	
-	  /**
-	  moves a poly by adding pt2add point to all its vertices
-	  @param {Array} poly: a poly to movePoly
-	  @param {Array} pt2add: a point to add to all vertices
-	  @returns {Array}: moved poly
-	  @memberof geomEssentials#
-	  */
-	  movePolyByAdding:function(poly,pt2add) {
-	    var res=poly.slice(0);
-	    for(var i=0;i<poly.length;i++){
-	      res[i][0]+=pt2add[0]; res[i][1]+=pt2add[1];
-	    }
-	    return res;
-	  },
-	
-	  /**
-	  moves a poly by translating all its vertices to moveto, using first vertex as origin
-	  @param {Array} poly: a poly to movePoly
-	  @param {Array} moveto: where translate all vertices
-	  @returns {Array}: moved poly
-	  @memberof geomEssentials#
-	  */
-	  movePolyByMovingTo:function(poly,moveto){
-	    var res=poly.slice(0);
-	    moveto[0] = moveto[0]-poly[0][0];
-	    moveto[1] = moveto[1]-poly[0][1];
-	    for(var i=1;i<poly.length;i++){
-	      res[i][0]+=moveto[0]; res[i][1]+=moveto[1];
-	    }
-	    return res;
-	  },
-	
-	  /**
-	  returns {seglen, angle} data structure for a,b segment
-	  @param {L.Point} a: start point
-	  @param {L.Point} b: fin point
-	  @returns {Object}:
-	  */
-	  computeSegDataLenAngle:function(a,b){
-	    var ablen = a.distanceTo(b), //compute segment length only once
-	        abangle = this.computeAngle(a,b,true); //same for angles
-	    return {seglen:ablen,angle:abangle};
-	  },
-	
-	  /**
-	  translates segment to new loc by adding point to its vertices
-	  @param {Array} segment:
-	  @param {L.Point} point:
-	  @returns {Array}:
-	  */
-	  translateSegment:function(segment, point){
-	    var result=segment.slice(0);
-	    result[0] = result[0].add(point);
-	    result[1] = result[1].add(point);
-	    return result;
-	  },
-	  /**
-	  code from L.GeometryUtil plugin
-	  @memberof geomEssentials#
-	  */
-	  computeAngle: function(a, b, check_left_to_right) {
-	      var x1 = a.x, x2 = b.x;
-	      if(check_left_to_right){
-	        if(x1>x2){
-	          var tmp=x1; x1=x2; x2=tmp;
-	        }
-	      }
-	      return (Math.atan2(b.y - a.y, x2 - x1) * 180 / Math.PI);
-	  },
-	
-	  /**
-	  code from L.GeometryUtil plugin
-	       Returns slope (Ax+B) between two points.
-	        @param {L.Point} a
-	        @param {L.Point} b
-	        @returns {Object} with ``a`` and ``b`` properties.
-	     */
-	  computeSlope: function(a, b) {
-	      var s = (b.y - a.y) / (b.x - a.x),
-	          o = a.y - (s * a.x);
-	      return L.point(s,o);
-	  },
-	
-	  getNormalOnSegment:function(segment){
-	    var slope = this.computeSlope(segment[0],segment[1]);
-	    return this.normalizePt(slope);
-	  },
-	
-	  get2dVectorLength:function(pt){
-	    return Math.sqrt(pt.x*pt.x + pt.y*pt.y);
-	  },
-	
-	  normalizePt:function(pt){
-	    var res = this.get2dVectorLength(pt);
-	    var res1 = pt.divideBy(res);
-	    return (pt.x===0&&pt.y===0)?0:pt.divideBy(this.get2dVectorLength(pt));
-	  },
-	
-	  /**
-	  copies segment and translates copy in normal direction by height value (may be negative)
-	  @param {Array} segment: a segment to translates
-	  @param {Number} height: how factory
-	  @returns {Array}: translated copy of segment
-	  */
-	  translateByNormal:function(segment,height){
-	    var normal = this.getNormalOnSegment(segment).multiplyBy(height);
-	    return this.translateSegment(segment,normal);
-	  },
-	
-	  /**
-	  code from L.GeometryUtil plugin
-	  @memberof geomEssentials#
-	  */
-	  interpolateOnPointSegment: function (segment, ratio) {
-	      return L.point(
-	          (segment[0].x * (1 - ratio)) + (ratio * segment[1].x),
-	          (segment[0].y * (1 - ratio)) + (ratio * segment[1].y)
-	      );
-	  },
-	
-	  /**
-	  Supplement function for extractSubPolyline
-	  returns start index, end index in segments array for item, also first cropped seg and last cropped seg.
-	  If only one seg here, it is crop both ends.
-	  @param {Number} offset_start:
-	  @param {Number} offset_end:
-	  @param {labelItem} item: item layer_type 1 with data and segdata fill
-	  @returns {Object}:
-	  */
-	  getOffsetWindowOnPolylineWithBorderSegments:function(offset_start,offset_end,item){
-	    var start = item.getSegmentIdxAndDistByOffset(offset_start),
-	        end = item.getSegmentIdxAndDistByOffset(offset_end),
-	        firstSeg = item.getSegment(start.index);
-	        firstSeg[0] = this.interpolateOnPointSegment(firstSeg,(start.dist-offset_start)/firstSeg[2].seglen);
-	        var lastSeg;
-	        if(start.index!==end.index){
-	          lastSeg = item.getSegment(end.index);
-	          if(!lastSeg[2]){
-	            console.log('qweqwe');
-	          }
-	          lastSeg[1] = this.interpolateOnPointSegment(lastSeg,(end.dist-offset_end)/lastSeg[2].seglen);
-	        }else{
-	          firstSeg[1]=this.interpolateOnPointSegment(firstSeg,(end.dist-offset_end)/firstSeg[2].seglen);
-	        }
-	        return {start:start,end:end,firstSeg:firstSeg,lastSeg:lastSeg};
-	  },
-	
-	  /**
-	  extracts sub-polyline frim give item's data line
-	  @param {Object} offsetwindow:
-	  @param {labelItem} item: item layer_type 1 with data and segdata fill
-	  @returns {Array}: array of L.Point
-	  */
-	  extractSubPolylineByOffsetWindow:function(offsetWindow,item){
-	    var result = offsetWindow.firstSeg.slice(0,1);
-	    if(!offsetWindow.lastSeg)return result; //one segment case
-	    //and if we have segments in between first/last:
-	    for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
-	      var segment = item.getSegment(i);
-	      result.push(segment[1]);
-	    }
-	    result.push(offsetWindow.lastSeg[1]);
-	    return result;
-	  },
-	
-	  /**
-	  extracts sub-polyline frim give item's data line
-	  @param {Number} offset_start:
-	  @param {Number} offset_end:
-	  @param {labelItem} item: item layer_type 1 with data and segdata fill
-	  @returns {Array}: array of L.Point
-	  */
-	  extractSubPolylineByOffsetValues:function(offset_start,offset_end,item){
-	    var offsetWindow = this.getOffsetWindowOnPolylineWithBorderSegments(offset_start, offset_end, item);
-	    return this.extractSubPolylineByOffsetWindow(offsetWindow);
-	  },
-	
-	  /**
-	  Used for calculationg overlaps for text along path (textPath SVG).
-	  @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
-	  @param {Number} end_offset: global offset for this polyline (item), same as used in rendering
-	  @param {LabelItem} item:
-	  @returns {Array} : a poly bounding with height of item.txSize.y
-	  */
-	  computeLineBoundaryPolygon:function(start_offset,end_offset,item){
-	    var offsetWindow = geomEssentials.getOffsetWindowOnPolylineWithBorderSegments(start_offset,end_offset,item);
-	    var lower_boundary = geomEssentials.extractSubPolylineByOffsetWindow(offsetWindow,item);
-	    var upper_boundary=geomEssentials.translateByNormal(offsetWindow.firstSeg,item.txSize).slice(0,1); //[a,b]
-	    if(offsetWindow.lastSeg){
-	      for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
-	        var curSegment=geomEssentials.translateByNormal(item.getSegment(i,true),item.txSize.y); //only segpoints
-	        upper_boundary.push(curSegment[1]);
-	      }
-	      upper_boundary.push(geomEssentials.translateByNormal(offsetWindow.lastSeg,item.txSize.y)[1]); //[a,b]);
-	    }
-	    Array.prototype.push.apply(lower_boundary, upper_boundary.reverse());
-	    for(var m in lower_boundary)if(isNaN(lower_boundary[m].x)){
-	      console.log('NAN!');
-	    }
-	    return lower_boundary;
-	  },
-	
-	  /**
-	  computes a point where two lines intersection
-	  @param {Array} seg1: a first line defined by two points
-	  @param {Array} seg2: a second line defined by two points
-	  @return {L.Point} :intersection point or null if lines are parallel to each other
-	  */
-	  lineIntersection:function(seg1,seg2){
-	    var slope1=this.computeSlope(seg1[0],seg1[1]);
-	    var slope2=this.computeSlope(seg2[0],seg2[1]);
-	    if(slope1.x===slope2.x)return;
-	    var x = (slope2.y - slope1.y) / (slope11.x - slope2.x);
-	    var y = slope1.x*x + slope1.y;
-	    return L.point(x,y);
-	  },
-	
-	  /**
-	  expangs a segment withing length in direction from seg[0] to seg[1]
-	  @param {Array} segment: a segment defined by two points
-	  @param {Number} length:how much increase segment len, should be positive
-	  @return {Array} : expanded segment
-	  */
-	  expandSegment:function(segment,length){
-	    var res=segment.slice(0);
-	    if(length>0){
-	      res[1]=this.interpolateOnPointSegment(segment,(length + segment[2].seglen)/segment[2].seglen);
-	    }
-	    return res;
-	  },
-	
-	  clipPoly:function(poly1,poly2){
-	    var intersection = greinerHormann.intersection(poly1, poly2);
-	    if(!intersection)return [];
-	    if(intersection.length>0)return intersection[0];
-	  },
-	
-	  /**
-	  returns a combined poly from two
-	  */
-	  addPoly:function(poly1,poly2){
-	    var union = greinerHormann.union(poly1, poly2);
-	    if(!union)return [];
-	    if(union.length>0)return union[0];
-	  },
-	
-	  subtractPoly:function(poly1,poly2){
-	    var diff = greinerHormann.diff(poly1, poly2);
-	    if(!diff)return [];else return diff;
-	  },
-	
-	  /**
-	  code from http://www.codeproject.com/Articles/13467/A-JavaScript-Implementation-of-the-Surveyor-s-Form
-	  for single polygon only, and no holes in
-	  @param {Array} poly: a poly to determine area of
-	  @memberof geomEssentials#
-	  */
-	  polyArea:function(poly) {
-	    // Calculate the area of a polygon
-	    // using the data stored
-	    // in the arrays x and y
-	    var area = 0.0;
-	    if(poly){
-	      var poly=poly.slice(0);
-	      if(poly.length>2)poly.push(poly[0]); //close the poly
-	      for(var k = 0; k < poly.length-1; k++ ) {
-	          var xDiff = poly[k+1][0] - poly[k][0];
-	          var yDiff = poly[k+1][1] - poly[k][1];
-	          area += + poly[k][0] * yDiff - poly[k][1] * xDiff;
-	      }
-	      area = 0.5 * area;
-	    }
-	    return area;
-	  },
-	
-	
-	  /**
-	  check if two labels overlab, if no returns false, if yes returns ???area OR polygon??? of averlap
-	  @param {} poly1:a first polygon to check overlap with second
-	  @param {} poly2:a second polygon to check overlap with first
-	  @returns {float}: an area of overlapping, zero if no overlapping
-	  */
-	  checkOverLappingArea:function(poly1,poly2,calculateAreaNotOnlyFactOfOverlapping) {
-	    var clipped = this.clipPoly(poly1,poly2);
-	    if(calculateAreaNotOnlyFactOfOverlapping){
-	      var area =this.polyArea(clipped);
-	      return area;
-	    };
-	    if(clipped.length>0)return 1;else return 0; //for performance, skip area calculation
-	  },
-	
-	  /**
-	  rotates given polygon to a given angle around basepoint
-	  code partialy from web, don't remember from...
-	  @param {Array} poly: a polygon to rotate
-	  @param {Array} basepoint: base point
-	  @param {float} angle: an angle in degrees
-	  @returns {Array}: rotated poly
-	  @memberof geomEssentials#
-	  */
-	  rotatePoly:function(poly, basepoint,angle){
-	    var res=[];
-	    var angleRad = angle*Math.PI/180;
-	    for(var i=0;i<poly.length;i++){
-	      var pPoint = poly[i],
-	      x_rotated = Math.cos(angleRad)*(pPoint[0]-basepoint[0]) - Math.sin(angleRad)*(pPoint[1]-basepoint[1]) + basepoint[0],
-	      y_rotated = Math.sin(angleRad)*(pPoint[0]-basepoint[0]) + Math.cos(angleRad)*(pPoint[1]-basepoint[1]) + basepoint[1];
-	      res.push([x_rotated,y_rotated]);
-	    }
-	    return res;
-	  },
-	
-	  createPoly:function(width,height){
-	    //TODO[createPoly]
-	  }
-	
-	}
-	
-	module.exports = geomEssentials;
-
-
-/***/ },
-/* 4 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var clip = __webpack_require__(5);
-	
-	module.exports = {
-	    /**
-	     * @api
-	     * @param  {Array.<Array.<Number>|Array.<Object>} polygonA
-	     * @param  {Array.<Array.<Number>|Array.<Object>} polygonB
-	     * @return {Array.<Array.<Number>>|Array.<Array.<Object>|Null}
-	     */
-	    union: function(polygonA, polygonB) {
-	        return clip(polygonA, polygonB, false, false);
-	    },
-	
-	    /**
-	     * @api
-	     * @param  {Array.<Array.<Number>|Array.<Object>} polygonA
-	     * @param  {Array.<Array.<Number>|Array.<Object>} polygonB
-	     * @return {Array.<Array.<Number>>|Array.<Array.<Object>>|Null}
-	     */
-	    intersection: function(polygonA, polygonB) {
-	        return clip(polygonA, polygonB, true, true);
-	    },
-	
-	    /**
-	     * @api
-	     * @param  {Array.<Array.<Number>|Array.<Object>} polygonA
-	     * @param  {Array.<Array.<Number>|Array.<Object>} polygonB
-	     * @return {Array.<Array.<Number>>|Array.<Array.<Object>>|Null}
-	     */
-	    diff: function(polygonA, polygonB) {
-	        return clip(polygonA, polygonB, false, true);
-	    },
-	
-	    clip: clip
-	};
-
-
-/***/ },
-/* 5 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var Polygon = __webpack_require__(6);
-	
-	/**
-	 * Clip driver
-	 * @api
-	 * @param  {Array.<Array.<Number>>} polygonA
-	 * @param  {Array.<Array.<Number>>} polygonB
-	 * @param  {Boolean}                sourceForwards
-	 * @param  {Boolean}                clipForwards
-	 * @return {Array.<Array.<Number>>}
-	 */
-	module.exports = function(polygonA, polygonB, eA, eB) {
-	    var result, source = new Polygon(polygonA),
-	        clip = new Polygon(polygonB),
-	        result = source.clip(clip, eA, eB);
-	
-	    return result;
-	};
-
-
-/***/ },
-/* 6 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var Vertex = __webpack_require__(7);
-	var Intersection = __webpack_require__(8);
-	
-	/**
-	 * Polygon representation
-	 * @param {Array.<Array.<Number>>} p
-	 * @param {Boolean=}               arrayVertices
-	 *
-	 * @constructor
-	 */
-	var Polygon = function(p, arrayVertices) {
-	
-	    /**
-	     * @type {Vertex}
-	     */
-	    this.first = null;
-	
-	    /**
-	     * @type {Number}
-	     */
-	    this.vertices = 0;
-	
-	    /**
-	     * @type {Vertex}
-	     */
-	    this._lastUnprocessed = null;
-	
-	    /**
-	     * Whether to handle input and output as [x,y] or {x:x,y:y}
-	     * @type {Boolean}
-	     */
-	    this._arrayVertices = (typeof arrayVertices === "undefined") ?
-	        Array.isArray(p[0]) :
-	        arrayVertices;
-	
-	    for (var i = 0, len = p.length; i < len; i++) {
-	        this.addVertex(new Vertex(p[i]));
-	    }
-	};
-	
-	/**
-	 * Add a vertex object to the polygon
-	 * (vertex is added at the 'end' of the list')
-	 *
-	 * @param vertex
-	 */
-	Polygon.prototype.addVertex = function(vertex) {
-	    if (this.first == null) {
-	        this.first = vertex;
-	        this.first.next = vertex;
-	        this.first.prev = vertex;
-	    } else {
-	        var next = this.first,
-	            prev = next.prev;
-	
-	        next.prev = vertex;
-	        vertex.next = next;
-	        vertex.prev = prev;
-	        prev.next = vertex;
-	    }
-	    this.vertices++;
-	};
-	
-	/**
-	 * Inserts a vertex inbetween start and end
-	 *
-	 * @param {Vertex} vertex
-	 * @param {Vertex} start
-	 * @param {Vertex} end
-	 */
-	Polygon.prototype.insertVertex = function(vertex, start, end) {
-	    var prev, curr = start;
-	
-	    while (!curr.equals(end) && curr._distance < vertex._distance) {
-	        curr = curr.next;
-	    }
-	
-	    vertex.next = curr;
-	    prev = curr.prev;
-	
-	    vertex.prev = prev;
-	    prev.next = vertex;
-	    curr.prev = vertex;
-	
-	    this.vertices++;
-	};
-	
-	/**
-	 * Get next non-intersection point
-	 * @param  {Vertex} v
-	 * @return {Vertex}
-	 */
-	Polygon.prototype.getNext = function(v) {
-	    var c = v;
-	    while (c._isIntersection) {
-	        c = c.next;
-	    }
-	    return c;
-	};
-	
-	/**
-	 * Unvisited intersection
-	 * @return {Vertex}
-	 */
-	Polygon.prototype.getFirstIntersect = function() {
-	    var v = this._firstIntersect || this.first;
-	
-	    do {
-	        if (v._isIntersection && !v._visited) {
-	            break;
-	        }
-	
-	        v = v.next;
-	    } while (!v.equals(this.first));
-	
-	    this._firstIntersect = v;
-	    return v;
-	};
-	
-	/**
-	 * Does the polygon have unvisited vertices
-	 * @return {Boolean} [description]
-	 */
-	Polygon.prototype.hasUnprocessed = function() {
-	    var v = this._lastUnprocessed || this.first;
-	    do {
-	        if (v._isIntersection && !v._visited) {
-	            this._lastUnprocessed = v;
-	            return true;
-	        }
-	
-	        v = v.next;
-	    } while (!v.equals(this.first));
-	
-	    this._lastUnprocessed = null;
-	    return false;
-	};
-	
-	/**
-	 * The output depends on what you put in, arrays or objects
-	 * @return {Array.<Array<Number>|Array.<Object>}
-	 */
-	Polygon.prototype.getPoints = function() {
-	    var points = [],
-	        v = this.first;
-	
-	    if (this._arrayVertices) {
-	        do {
-	            points.push([v.x, v.y]);
-	            v = v.next;
-	        } while (v !== this.first);
-	    } else {
-	        do {
-	            points.push({
-	                x: v.x,
-	                y: v.y
-	            });
-	            v = v.next;
-	        } while (v !== this.first);
-	    }
-	
-	    return points;
-	};
-	
-	/**
-	 * Clip polygon against another one.
-	 * Result depends on algorithm direction:
-	 *
-	 * Intersection: forwards forwards
-	 * Union:        backwars backwards
-	 * Diff:         backwards forwards
-	 *
-	 * @param {Polygon} clip
-	 * @param {Boolean} sourceForwards
-	 * @param {Boolean} clipForwards
-	 */
-	Polygon.prototype.clip = function(clip, sourceForwards, clipForwards) {
-	    var sourceVertex = this.first,
-	        clipVertex = clip.first,
-	        sourceInClip, clipInSource;
-	
-	    // calculate and mark intersections
-	    do {
-	        if (!sourceVertex._isIntersection) {
-	            do {
-	                if (!clipVertex._isIntersection) {
-	                    var i = new Intersection(
-	                        sourceVertex,
-	                        this.getNext(sourceVertex.next),
-	                        clipVertex, clip.getNext(clipVertex.next));
-	
-	                    if (i.valid()) {
-	                        var sourceIntersection =
-	                            Vertex.createIntersection(i.x, i.y, i.toSource),
-	                            clipIntersection =
-	                            Vertex.createIntersection(i.x, i.y, i.toClip);
-	
-	                        sourceIntersection._corresponding = clipIntersection;
-	                        clipIntersection._corresponding = sourceIntersection;
-	
-	                        this.insertVertex(
-	                            sourceIntersection,
-	                            sourceVertex,
-	                            this.getNext(sourceVertex.next));
-	                        clip.insertVertex(
-	                            clipIntersection,
-	                            clipVertex,
-	                            clip.getNext(clipVertex.next));
-	                    }
-	                }
-	                clipVertex = clipVertex.next;
-	            } while (!clipVertex.equals(clip.first));
-	        }
-	
-	        sourceVertex = sourceVertex.next;
-	    } while (!sourceVertex.equals(this.first));
-	
-	    // phase two - identify entry/exit points
-	    sourceVertex = this.first;
-	    clipVertex = clip.first;
-	
-	    sourceInClip = sourceVertex.isInside(clip);
-	    clipInSource = clipVertex.isInside(this);
-	
-	    sourceForwards ^= sourceInClip;
-	    clipForwards ^= clipInSource;
-	
-	    do {
-	        if (sourceVertex._isIntersection) {
-	            sourceVertex._isEntry = sourceForwards;
-	            sourceForwards = !sourceForwards;
-	        }
-	        sourceVertex = sourceVertex.next;
-	    } while (!sourceVertex.equals(this.first));
-	
-	    do {
-	        if (clipVertex._isIntersection) {
-	            clipVertex._isEntry = clipForwards;
-	            clipForwards = !clipForwards;
-	        }
-	        clipVertex = clipVertex.next;
-	    } while (!clipVertex.equals(clip.first));
-	
-	    // phase three - construct a list of clipped polygons
-	    var list = [];
-	
-	    while (this.hasUnprocessed()) {
-	        var current = this.getFirstIntersect(),
-	            // keep format
-	            clipped = new Polygon([], this._arrayVertices);
-	
-	        clipped.addVertex(new Vertex(current.x, current.y));
-	        do {
-	            current.visit();
-	            if (current._isEntry) {
-	                do {
-	                    current = current.next;
-	                    clipped.addVertex(new Vertex(current.x, current.y));
-	                } while (!current._isIntersection);
-	
-	            } else {
-	                do {
-	                    current = current.prev;
-	                    clipped.addVertex(new Vertex(current.x, current.y));
-	                } while (!current._isIntersection);
-	            }
-	            current = current._corresponding;
-	        } while (!current._visited);
-	
-	        list.push(clipped.getPoints());
-	    }
-	
-	    if (list.length === 0) {
-	        if (sourceInClip) {
-	            list.push(this.getPoints());
-	        }
-	        if (clipInSource) {
-	            list.push(clip.getPoints());
-	        }
-	        if (list.length === 0) {
-	            list = null;
-	        }
-	    }
-	
-	    return list;
-	};
-	
-	module.exports = Polygon;
-
-
-/***/ },
-/* 7 */
-/***/ function(module, exports) {
-
-	/**
-	 * Vertex representation
-	 *
-	 * @param {Number|Array.<Number>} x
-	 * @param {Number=}               y
-	 *
-	 * @constructor
-	 */
-	var Vertex = function(x, y) {
-	
-	    if (arguments.length === 1) {
-	        // Coords
-	        if (Array.isArray(x)) {
-	            y = x[1];
-	            x = x[0];
-	        } else {
-	            y = x.y;
-	            x = x.x;
-	        }
-	    }
-	
-	    /**
-	     * X coordinate
-	     * @type {Number}
-	     */
-	    this.x = x;
-	
-	    /**
-	     * Y coordinate
-	     * @type {Number}
-	     */
-	    this.y = y;
-	
-	    /**
-	     * Next node
-	     * @type {Vertex}
-	     */
-	    this.next = null;
-	
-	    /**
-	     * Previous vertex
-	     * @type {Vertex}
-	     */
-	    this.prev = null;
-	
-	    /**
-	     * Corresponding intersection in other polygon
-	     */
-	    this._corresponding = null;
-	
-	    /**
-	     * Distance from previous
-	     */
-	    this._distance = 0.0;
-	
-	    /**
-	     * Entry/exit point in another polygon
-	     * @type {Boolean}
-	     */
-	    this._isEntry = true;
-	
-	    /**
-	     * Intersection vertex flag
-	     * @type {Boolean}
-	     */
-	    this._isIntersection = false;
-	
-	    /**
-	     * Loop check
-	     * @type {Boolean}
-	     */
-	    this._visited = false;
-	};
-	
-	/**
-	 * Creates intersection vertex
-	 * @param  {Number} x
-	 * @param  {Number} y
-	 * @param  {Number} distance
-	 * @return {Vertex}
-	 */
-	Vertex.createIntersection = function(x, y, distance) {
-	    var vertex = new Vertex(x, y);
-	    vertex._distance = distance;
-	    vertex._isIntersection = true;
-	    vertex._isEntry = false;
-	    return vertex;
-	};
-	
-	/**
-	 * Mark as visited
-	 */
-	Vertex.prototype.visit = function() {
-	    this._visited = true;
-	    if (this._corresponding !== null && !this._corresponding._visited) {
-	        this._corresponding.visit();
-	    }
-	};
-	
-	/**
-	 * Convenience
-	 * @param  {Vertex}  v
-	 * @return {Boolean}
-	 */
-	Vertex.prototype.equals = function(v) {
-	    return this.x === v.x && this.y === v.y;
-	};
-	
-	/**
-	 * Check if vertex is inside a polygon by odd-even rule:
-	 * If the number of intersections of a ray out of the point and polygon
-	 * segments is odd - the point is inside.
-	 * @param {Polygon} poly
-	 * @return {Boolean}
-	 */
-	Vertex.prototype.isInside = function(poly) {
-	    var oddNodes = false,
-	        vertex = poly.first,
-	        next = vertex.next,
-	        x = this.x,
-	        y = this.y;
-	
-	    do {
-	        if ((vertex.y < y && next.y >= y ||
-	                next.y < y && vertex.y >= y) &&
-	            (vertex.x <= x || next.x <= x)) {
-	
-	            oddNodes ^= (vertex.x + (y - vertex.y) /
-	                (next.y - vertex.y) * (next.x - vertex.x) < x);
-	        }
-	
-	        vertex = vertex.next;
-	        next = vertex.next || poly.first;
-	    } while (!vertex.equals(poly.first));
-	
-	    return oddNodes;
-	};
-	
-	module.exports = Vertex;
-
-
-/***/ },
-/* 8 */
-/***/ function(module, exports) {
-
-	/**
-	 * Intersection
-	 * @param {Vertex} s1
-	 * @param {Vertex} s2
-	 * @param {Vertex} c1
-	 * @param {Vertex} c2
-	 * @constructor
-	 */
-	var Intersection = function(s1, s2, c1, c2) {
-	
-	    /**
-	     * @type {Number}
-	     */
-	    this.x = 0.0;
-	
-	    /**
-	     * @type {Number}
-	     */
-	    this.y = 0.0;
-	
-	    /**
-	     * @type {Number}
-	     */
-	    this.toSource = 0.0;
-	
-	    /**
-	     * @type {Number}
-	     */
-	    this.toClip = 0.0;
-	
-	    var d = (c2.y - c1.y) * (s2.x - s1.x) - (c2.x - c1.x) * (s2.y - s1.y);
-	
-	    if (d === 0) {
-	        return;
-	    }
-	
-	    /**
-	     * @type {Number}
-	     */
-	    this.toSource = ((c2.x - c1.x) * (s1.y - c1.y) - (c2.y - c1.y) * (s1.x - c1.x)) / d;
-	
-	    /**
-	     * @type {Number}
-	     */
-	    this.toClip = ((s2.x - s1.x) * (s1.y - c1.y) - (s2.y - s1.y) * (s1.x - c1.x)) / d;
-	
-	    if (this.valid()) {
-	        this.x = s1.x + this.toSource * (s2.x - s1.x);
-	        this.y = s1.y + this.toSource * (s2.y - s1.y);
-	    }
-	};
-	
-	/**
-	 * @return {Boolean}
-	 */
-	Intersection.prototype.valid = function() {
-	    return (0 < this.toSource && this.toSource < 1) && (0 < this.toClip && this.toClip < 1);
-	};
-	
-	module.exports = Intersection;
-
-
-/***/ },
+/* 3 */,
+/* 4 */,
+/* 5 */,
+/* 6 */,
+/* 7 */,
+/* 8 */,
 /* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
 	
-	var geomEssentials = __webpack_require__(3);
+	var geomEssentials = __webpack_require__(!(function webpackMissingModule() { var e = new Error("Cannot find module \"./geomEssentials.js\""); e.code = 'MODULE_NOT_FOUND'; throw e; }()));
 	var candidateGenerator = __webpack_require__(10);
 	
 	var simulatedAnnealing = {
@@ -1534,7 +605,7 @@
 /* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var geomEssentials = __webpack_require__(3);
+	var geomEssentials = __webpack_require__(!(function webpackMissingModule() { var e = new Error("Cannot find module \"./geomEssentials.js\""); e.code = 'MODULE_NOT_FOUND'; throw e; }()));
 	var itemFactory = __webpack_require__(11);
 	
 	var candidateGenerator = {
@@ -1593,7 +664,7 @@
 	modlue to create labelItems convenient for labelling and calculation
 	*/
 	
-	var geomEssentials = __webpack_require__(3);
+	var geomEssentials = __webpack_require__(!(function webpackMissingModule() { var e = new Error("Cannot find module \"./geomEssentials.js\""); e.code = 'MODULE_NOT_FOUND'; throw e; }()));
 	
 	module.exports = {
 	  /**
@@ -1613,18 +684,10 @@
 	        return this.host.lastIndexOf(this);
 	      },
 	      readData:function(){return false}, //a method stub
-	      layer_type:function(){ //return a layer type, where 0 is point, 1 is line, 2 is poly
-	        // if(!this._type){
-	        //   if(layer instanceof  L.CircleMarker || L.Marker){
-	        //     this._type= 0;
-	        //   }else if(layer instanceof L.Polyline){
-	        //     this._type= 1;
-	        //   }else if(layer instanceof L.Polygon){
-	        //     this._type= 2;
-	        //   }
-	        // }
-	        // return this._type;
-	        return (this.layer._parts.length>0)?1:0;
+	      layer_type:function(){
+	        //TOFIX for polygon
+	        if(!this._layer_type)this._layer_type = (this.layer._parts.length>0)?1:0;
+	        return this._layer_type;
 	      }
 	    };
 	
@@ -1646,51 +709,27 @@
 	    }
 	
 	    if(basic_item.layer_type()==1){
-	
 	      if(basic_item.layer._parts.length==0)return;
-	
-	      basic_item.segdata=[];
+	      basic_item.computed_lengths=[];
 	      basic_item.totalLength=0;
-	      basic_item.getSegment = function(index,no_segdata){
-	        var a = this.data[index], b = this.data[index+1];
-	        if(no_segdata)return [a,b];
-	        else return [a,b,this.segdata[index]];
-	      }
-	      basic_item.segCount = function(){
-	        return this.segdata.length;
-	      }
+	
+	      basic_item.segCount = function(){return this.data.length -1};
 	
 	      /**
 	      Get a segment from polyline part by it's offset
 	      @param {Number} offset: na offset for the polyline
-	      @param {labelItem} item: item
-	      @returns {Object} : index of segment and dist which is offset from start of the line to the end of found segment
+	      @returns {Array} : index of start point of segment and dist which is offset from start of the line to the end of found segment
 	      */
 	      basic_item.getSegmentIdxAndDistByOffset=function(offset){
-	        var cdist=0;
-	        for(var i=0;i<this.segCount();i++){
-	          cdist+=this.getSegment(i)[2].seglen;
-	          if(offset<cdist){
-	            return {index:i,dist:cdist};
-	          }
-	        }
-	        return {index:this.segCount()-1,dist:cdist};
+	        return geomEssentials.getSegmentIdxAndDistByOffset(offset,this.data,this.computed_lengths);
 	      }
 	
-	      /**
-	      based on https://blog.dotzero.ru/weighted-random-simple/
+	      /**      
 	      get a random element from segments array of the item, assuming it is sorted lengths ascending order
 	      probability is higher for longer segment
 	      */
 	      basic_item.getIndexBasedOnTotalLengthRandom=function(){
-	        var random_pos = Math.random()*this.totalLength; //get a position random for all segments of this polyline visible on the screen
-	        //obtain and index of segment, to which belongs this position, it is assumed tha segments are sorted by length
-	        var clen=0;
-	        for(var i=0;i<this.segCount();i++){
-	          clen+=this.segdata[i].seglen;
-	          if(clen>random_pos)break;
-	        }
-	        return i;
+	        return geomEssentials.getIndexBasedOnTotalLengthRandom(this.data,this.computed_lengths,this.totalLength);
 	      }
 	    }
 	    return basic_item;
@@ -1713,7 +752,7 @@
 	      */
 	      _computePolyForLine:function(start_offset,item){
 	        var final_offset = start_offset + item.txSize.x;
-	        var end_offset=(final_offset<=item.totalLength)?final_offset:item.totalLength;
+	        var end_offset=(final_offset<item.totalLength)?final_offset:item.totalLength;
 	        return geomEssentials.computeLineBoundaryPolygon(start_offset,end_offset,item);
 	      },
 	
@@ -1751,7 +790,7 @@
 	"use strict";
 	
 	var DOMEssentials = __webpack_require__(2);
-	var geomEssentials = __webpack_require__(3);
+	var geomEssentials = __webpack_require__(!(function webpackMissingModule() { var e = new Error("Cannot find module \"./geomEssentials.js\""); e.code = 'MODULE_NOT_FOUND'; throw e; }()));
 	var itemFactory = __webpack_require__(11);
 	
 	var dataReader = {
@@ -1820,21 +859,10 @@
 	  */
 	  _applyLineFeatureData:function(item){ //calculate some data once to increase performance
 	      item.totalLength=0;
-	      for(var k=1;k<item.data.length;k++){
-	        var a = item.data[k-1], b = item.data[k],
-	            seg = geomEssentials.computeSegDataLenAngle(a,b);
-	        item.segdata.push(seg);
-	        item.totalLength+=seg.seglen;
+	      item.computed_lengths = geomEssentials.computeSegmentsLengths(item.data);
+	      for(var k=0;k<item.computed_lengths.length;k++){
+	        item.totalLength+=item.computed_lengths[k];
 	      }
-	  },
-	
-	  _getLineSegmentBoundaryPoly:function(item){
-	    //TODO [_getLineSegmentBoundaryPoly]
-	    // var labelLength = item.t.poly[2][0];
-	  },
-	
-	  prepareGeneralConflictGraph:function(all_segs){
-	    //TODO[prepareGeneralConflictGraph]
 	  }
 	}
 	
