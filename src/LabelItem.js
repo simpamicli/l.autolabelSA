@@ -62,7 +62,7 @@ module.exports = {
         return geomEssentials.getSegmentIdxAndDistByOffset(offset,this.data,this.computed_lengths);
       }
 
-      /**      
+      /**
       get a random element from segments array of the item, assuming it is sorted lengths ascending order
       probability is higher for longer segment
       */
@@ -91,7 +91,8 @@ module.exports = {
       _computePolyForLine:function(start_offset,item){
         var final_offset = start_offset + item.txSize.x;
         var end_offset=(final_offset<item.totalLength)?final_offset:item.totalLength;
-        return geomEssentials.computeLineBoundaryPolygon(start_offset,end_offset,item);
+        var subPolyline = geomEssentials.extractSubPolylineByOffsetValues(start_offset,end_offset,item.data,item.computed_lengths);
+        return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
       },
 
       /**

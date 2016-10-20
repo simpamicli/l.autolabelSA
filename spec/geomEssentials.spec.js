@@ -1,37 +1,32 @@
 describe("geomEssentials", function() {
+    var geomEssentials = require('../src/geomEssentials.js');
 
-    // //This will be called before running each spec
-    // beforeEach(function() {
-    //     calc = new MathUtils();
-    // });
-    //
-    // describe("when calc is used to peform basic math operations", function(){
-    //
-    //     //Spec for sum operation
-    //     it("should be able to calculate sum of 3 and 5", function() {
-    //         expect(calc.sum(3,5)).toEqual(8);
-    //     });
-    //
-    //     //Spec for multiply operation
-    //     it("should be able to multiply 10 and 40", function() {
-    //         expect(calc.multiply(10, 40)).toEqual(400);
-    //     });
-    //
-    //     //Spec for factorial operation for positive number
-    //     it("should be able to calculate factorial of 9", function() {
-    //         expect(calc.factorial(9)).toEqual(362880);
-    //     });
-    //
-    //     //Spec for factorial operation for negative number
-    //     it("should be able to throw error in factorial operation when the number is negative", function() {
-    //         expect(function() {
-    //             calc.factorial(-7)
-    //         }).toThrowError(Error);
-    //     });
-    //
-    // });
+    var L ={
+      point:function(x,y){
+        var res={
+          x:x,
+          y:y,
+          divideBy:function(d){
+            return new L.point(x/d, y/d);
+          },
+          multiplyBy:function(m){
+            return this.divideBy(1/m);
+          },
+          distanceTo:function(){
+            return geomEssentials.get2dVectorLength(this);
+          }
+        }
+      }
+    };
+
+    var a=L.point(0,0),
+        b=L.point(1,1),
+        c=L.point(2,1),
+        d=L.point(3,0.5),
+        e=L.point(3,0),
+        polyline= [a,b,c,d,e];
+
     describe('Round point',function(){
-      var p=L.point(1.5,2.5), res=L.point(1,2);
       it('Should be 1,2',function () {
         expect(geomEssentials.roundPoint(p)).toEqual(res);
       })

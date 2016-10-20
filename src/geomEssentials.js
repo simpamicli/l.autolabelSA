@@ -16,7 +16,7 @@ var geomEssentials = {
       result.push(polyline[k].distanceTo(polyline[k-1]));
     }
     return result;
-  }
+  },
 
   /**
   translates segment to new loc by adding point to its vertices
@@ -55,7 +55,9 @@ var geomEssentials = {
   lineIntersection:function(a,b,c,d){
     var slope1=this.computeSlope(a,b), slope2=this.computeSlope(c,d);
     if(slope1.x===slope2.x)return;
-    return L.point((slope2.y - slope1.y) / (slope11.x - slope2.x),slope1.x*x + slope1.y);
+    var x = (slope2.y - slope1.y) / (slope1.x - slope2.x);
+    var y = slope1.x*x + slope1.y;
+    return L.point(x,y);
   },
 
   /**
@@ -94,7 +96,7 @@ var geomEssentials = {
   @param {Number} height:  height of normal
   @returns {Array}: translated copy of polyline
   */
-  translateByNormal:function(polyline,height){
+  translateByNormals:function(polyline,height){
     var out_polyline=[];
     for(var i=0;i<polyline.length-1;i++){
       var normal = this.getNormalOnSegment(polyline[i],polyline[i+1]).multiplyBy(height);
@@ -169,15 +171,16 @@ var geomEssentials = {
   @returns {Object}:
   */
   extractSubPolylineByOffsetValues:function(offset_start,offset_end,polyline,computed_lengths){
-    var start = item.getSegmentIdxAndDistByOffset(offset_start),
-        end = item.getSegmentIdxAndDistByOffset(offset_end),
-        start_point= this.interpolateOnPointSegment(polyline.data[start[0]],polyline.data[start[0]+1],(start[1]-offset_start)/computed_lengths[start[0]]),
-        end_point = this.interpolateOnPointSegment(polyline.data[end[0]],polyline.data[end[0]+1],(end[1]-offset_end)/computed_lengths[end[0]]),
+    var start = this.getSegmentIdxAndDistByOffset(offset_start,polyline,computed_lengths),
+        end = this.getSegmentIdxAndDistByOffset(offset_end,polyline,computed_lengths),
+        start_point= this.interpolateOnPointSegment(polyline[start[0]],polyline[start[0]+1],(start[1]-offset_start)/computed_lengths[start[0]]),
+        end_point = this.interpolateOnPointSegment(polyline[end[0]],polyline[end[0]+1],(end[1]-offset_end)/computed_lengths[end[0]]),
         result = [start_point];
-        for(var i=start[0]+1;i<=end[0];i++){ //push every point from end of start segment to segment prior to last
-          result.push(polyline.data[i]);
-        }
-        result.push(end_point);
+    for(var i=start[0]+1;i<=end[0];i++){ //push every point from end of start segment to segment prior to last
+      result.push(polyline[i]);
+    }
+    result.push(end_point);
+    return result;
   },
 
   /**
@@ -188,18 +191,9 @@ var geomEssentials = {
   @returns {Array} : a poly bounding with height of item.txSize.y
   */
   computeLineBoundaryPolygon:function(polyline,height){
-    var upper_boundary=geomEssentials.translateByNormals(polyline,height); //[a,b]
-    if(offsetWindow.lastSeg){
-      for(var i=offsetWindow.start.index+1;i<offsetWindow.end.index;i++){
-        var curSegment=geomEssentials.translateByNormal(item.getSegment(i,true),item.txSize.y); //only segpoints
-        upper_boundary.push(curSegment[1]);
-      }
-      upper_boundary.push(geomEssentials.translateByNormal(offsetWindow.lastSeg,item.txSize.y)[1]); //[a,b]);
-    }
+    var lower_boundary = polyline.slice(0);
+    var upper_boundary=this.translateByNormals(polyline,height);
     Array.prototype.push.apply(lower_boundary, upper_boundary.reverse());
-    for(var m in lower_boundary)if(isNaN(lower_boundary[m].x)){
-      console.log('NAN!');
-    }
     return lower_boundary;
   },
 
