@@ -261,7 +261,11 @@
 	    _clearNodes:function() {
 	    var svg = this._map.options.renderer._container;  //to work with SVG
 	      for(var i=0;i<this._nodes.length;i++){//clear _nodes on screen
-	        svg.removeChild(this._nodes[i]);
+	        try{
+	          svg.removeChild(this._nodes[i]);
+	        }catch(err){
+	          console.log(err+'  '+i);
+	        }
 	      }
 	      this._nodes=[];
 	      // this._dodebug("Cleared nodes");
@@ -288,6 +292,7 @@
 	        textPath.setAttribute('startOffset',labelset[m].offset_or_origin);
 	        var text = labelset[m]._item.txNode.textContent;
 	        labelset[m]._item.txNode.textContent="";
+	        textPath.appendChild(document.createTextNode(text));
 	        labelset[m]._item.txNode.appendChild(textPath);
 	        svg.appendChild(labelset[m]._item.txNode);
 	        this._nodes.push(labelset[m]._item.txNode);//add this labl to _nodes array, so we can erase it from the screen later
@@ -482,7 +487,7 @@
 	  @param {Number} height:  height of normal
 	  @returns {Array}: translated copy of polyline
 	  */
-	  translateByNormals:function(polyline,height){
+	  translateByNormals:function(polyline,height){ //TODO [translateByNormals] not working properly - when segments are fully inside polygon
 	    var out_polyline=[];
 	    for(var i=0;i<polyline.length-1;i++){
 	      var normal = this.getNormalOnSegment(polyline[i],polyline[i+1]).multiplyBy(height);

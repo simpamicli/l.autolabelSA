@@ -109,7 +109,7 @@ var geomEssentials = {
   @param {Number} height:  height of normal
   @returns {Array}: translated copy of polyline
   */
-  translateByNormals:function(polyline,height){
+  translateByNormals:function(polyline,height){ //TODO [translateByNormals] not working properly - when segments are fully inside polygon
     var out_polyline=[];
     for(var i=0;i<polyline.length-1;i++){
       var normal = this.getNormalOnSegment(polyline[i],polyline[i+1]).multiplyBy(height);
