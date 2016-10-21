@@ -187,10 +187,10 @@ var geomEssentials = {
   extractSubPolyline:function(offset_start,offset_end,polyline,computed_lengths){
     var start = this.getSegmentIdxAndDistByOffset(offset_start,polyline,computed_lengths),
         end = this.getSegmentIdxAndDistByOffset(offset_end,polyline,computed_lengths),
-        start_point= this.interpolateOnPointSegment(polyline[start[0]],polyline[start[0]+1],(start[1]-offset_start)/computed_lengths[start[0]]),
-        end_point = this.interpolateOnPointSegment(polyline[end[0]],polyline[end[0]+1],(end[1]-offset_end)/computed_lengths[end[0]]),
+        start_point= this.interpolateOnPointSegment(polyline[start[0]],polyline[start[0]+1],(computed_lengths[start[0]]-start[1]+offset_start)/computed_lengths[start[0]]),
+        end_point = this.interpolateOnPointSegment(polyline[end[0]],polyline[end[0]+1],(computed_lengths[end[0]]-end[1]+offset_end)/computed_lengths[end[0]]),
         result = [start_point];
-    for(var i=start[0]+1;i<end[0];i++){ //push every point from end of start segment to segment prior to last
+    for(var i=start[0]+1;i<=end[0];i++){ //push every point from end of start segment to segment prior to last
       result.push(polyline[i]);
     }
     result.push(end_point);

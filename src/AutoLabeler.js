@@ -170,7 +170,7 @@ L.AutoLabeler = L.Evented.extend(
 
         var textPath = L.SVG.create('textPath');
         textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
-        textPath.setAttribute('startOffset',labelset[m].offset_or_origin);
+      //  textPath.setAttribute('startOffset',labelset[m].offset_or_origin);
         var text = labelset[m]._item.txNode.textContent;
         labelset[m]._item.txNode.textContent="";
         textPath.appendChild(document.createTextNode(text));

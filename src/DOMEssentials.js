@@ -33,7 +33,7 @@ module.exports = {
     svg.appendChild(node);
     var rect = node.getBoundingClientRect();
     svg.removeChild(node);
-    return L.point(rect.width,rect.height);
+    return L.point(rect.width,-rect.height);
   },
 
   /**
