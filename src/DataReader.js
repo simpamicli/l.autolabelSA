@@ -26,6 +26,10 @@ var dataReader = {
           if(layer.feature.properties[lg._al_options.propertyName]){
             var node = DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle),
                 size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
+            if(layer._path){
+              var id = 'pathautolabel-' + L.Util.stamp(layer);
+              layer._path.setAttribute('id',id);
+            }
             var firstItem = itemFactory.labelItem(node,size,layer,pt)
             if(firstItem){
               var nextPartIndex=firstItem.readData();

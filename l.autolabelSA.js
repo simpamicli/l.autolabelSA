@@ -274,17 +274,23 @@
 	    _renderNodes:function(labelset){
 	      var svg =  this._map.options.renderer._container;  //to work with SVG
 	      this._clearNodes(); //clearscreen
+	      var curID,cur_zero_offset=0; //for handling several parts path - to ensure we have label on each part of feature
 	      for(var m in labelset){
-	        // var node = labelset[m].t.content_node;
-	        // var x = labelset[m].pos.x;
-	        // var y = labelset[m].pos.y;
-	        // node.setAttribute('x', x);
-	        // node.setAttribute('y', y);
-	        // var transform ='rotate('+ Math.floor(labelset[m].a)+','+Math.floor(x)+','+Math.floor(y)+')';
-	        // transform = transform.replace(/ /g, '\u00A0');
-	        // node.setAttribute('transform',transform);
-	        // svg.appendChild(node);
-	        // this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
+	        if(!curID){
+	          curID = labelset[m]._item.layer._path.id;
+	        }else if(curID!==labelset[m]._item.layer._path.id){ //new feature -> start offset from 0
+	          cur_zero_offset=0;
+	          curID = labelset[m]._item.layer._path.id;
+	        }else cur_zero_offset+=labelset[m-1].totalLength;
+	
+	        var textPath = L.SVG.create('textPath');
+	        textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
+	        textPath.setAttribute('startOffset',labelset[m].offset_or_origin);
+	        var text = labelset[m]._item.txNode.textContent;
+	        labelset[m]._item.txNode.textContent="";
+	        labelset[m]._item.txNode.appendChild(textPath);
+	        svg.appendChild(labelset[m]._item.txNode);
+	        this._nodes.push(labelset[m]._item.txNode);//add this labl to _nodes array, so we can erase it from the screen later
 	        if(this.options.showBBoxes){
 	          //here for testing purposes
 	          var polynode = this._createPolygonNode(labelset[m].poly(),labelset[m].overlaps);
@@ -482,7 +488,7 @@
 	      var normal = this.getNormalOnSegment(polyline[i],polyline[i+1]).multiplyBy(height);
 	      var current_segment=this.translateSegment(polyline[i],polyline[i+1],normal);
 	      //now check if current segment is connected well to previous
-	      if(i>0){ //so -> it isn't first segment, and out_polyline has at leat two points
+	      if(i>0){ //so -> it isn't first segment, and out_polyline has at least two points
 	        var pt_intersect = this.lineIntersection(out_polyline[out_polyline.length-2],out_polyline[out_polyline.length-1],current_segment[0],current_segment[1]);
 	        out_polyline[out_polyline.length-1] = pt_intersect;
 	        out_polyline.push(current_segment[1]);
@@ -551,7 +557,7 @@
 	  @param {Array} computed_lengths: precomputed lengths (if available) for polyline segments
 	  @returns {Object}:
 	  */
-	  extractSubPolylineByOffsetValues:function(offset_start,offset_end,polyline,computed_lengths){
+	  extractSubPolyline:function(offset_start,offset_end,polyline,computed_lengths){
 	    var start = this.getSegmentIdxAndDistByOffset(offset_start,polyline,computed_lengths),
 	        end = this.getSegmentIdxAndDistByOffset(offset_end,polyline,computed_lengths),
 	        start_point= this.interpolateOnPointSegment(polyline[start[0]],polyline[start[0]+1],(start[1]-offset_start)/computed_lengths[start[0]]),
@@ -689,12 +695,7 @@
 	      res[i][0]+=moveto[0]; res[i][1]+=moveto[1];
 	    }
 	    return res;
-	  },
-	
-	  createPoly:function(width,height){
-	    //TODO[createPoly]
 	  }
-	
 	}
 	
 	module.exports = geomEssentials;
@@ -1603,6 +1604,9 @@
 	        basic_item.data=basic_item.layer._map.latLngToLayerPoint(basic_item.layer.getLatLngs()[0]); //so we adding only L.Point obj
 	      }
 	    }else{
+	      if(basic_item.layer._parts.length==0)return;
+	      basic_item.computed_lengths=[];
+	      basic_item.totalLength=0;
 	      //this give possibility to read all parts to separate items
 	      basic_item.readData=function(partIndex){ //to read consequently
 	        if(!partIndex){var partIndex=0;};
@@ -1611,12 +1615,6 @@
 	        var nextPart=++partIndex;
 	        if(nextPart<this.layer._parts.length)return nextPart;else return false;
 	      }
-	    }
-	
-	    if(basic_item.layer_type()==1){
-	      if(basic_item.layer._parts.length==0)return;
-	      basic_item.computed_lengths=[];
-	      basic_item.totalLength=0;
 	
 	      basic_item.segCount = function(){return this.data.length -1};
 	
@@ -1637,6 +1635,7 @@
 	        return geomEssentials.getIndexBasedOnTotalLengthRandom(this.data,this.computed_lengths,this.totalLength);
 	      }
 	    }
+	    
 	    return basic_item;
 	  },
 	
@@ -1658,7 +1657,7 @@
 	      _computePolyForLine:function(start_offset,item){
 	        var final_offset = start_offset + item.txSize.x;
 	        var end_offset=(final_offset<item.totalLength)?final_offset:item.totalLength;
-	        var subPolyline = geomEssentials.extractSubPolylineByOffsetValues(start_offset,end_offset,item.data,item.computed_lengths);
+	        var subPolyline = geomEssentials.extractSubPolyline(start_offset,end_offset,item.data,item.computed_lengths);
 	        return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
 	      },
 	
@@ -1717,6 +1716,10 @@
 	          if(layer.feature.properties[lg._al_options.propertyName]){
 	            var node = DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle),
 	                size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
+	            if(layer._path){
+	              var id = 'pathautolabel-' + L.Util.stamp(layer);
+	              layer._path.setAttribute('id',id);
+	            }
 	            var firstItem = itemFactory.labelItem(node,size,layer,pt)
 	            if(firstItem){
 	              var nextPartIndex=firstItem.readData();

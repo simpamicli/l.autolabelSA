@@ -155,17 +155,23 @@ L.AutoLabeler = L.Evented.extend(
     _renderNodes:function(labelset){
       var svg =  this._map.options.renderer._container;  //to work with SVG
       this._clearNodes(); //clearscreen
+      var curID,cur_zero_offset=0; //for handling several parts path - to ensure we have label on each part of feature
       for(var m in labelset){
-        // var node = labelset[m].t.content_node;
-        // var x = labelset[m].pos.x;
-        // var y = labelset[m].pos.y;
-        // node.setAttribute('x', x);
-        // node.setAttribute('y', y);
-        // var transform ='rotate('+ Math.floor(labelset[m].a)+','+Math.floor(x)+','+Math.floor(y)+')';
-        // transform = transform.replace(/ /g, '\u00A0');
-        // node.setAttribute('transform',transform);
-        // svg.appendChild(node);
-        // this._nodes.push(node);//add this labl to _nodes array, so we can erase it from the screen later
+        if(!curID){
+          curID = labelset[m]._item.layer._path.id;
+        }else if(curID!==labelset[m]._item.layer._path.id){ //new feature -> start offset from 0
+          cur_zero_offset=0;
+          curID = labelset[m]._item.layer._path.id;
+        }else cur_zero_offset+=labelset[m-1].totalLength;
+
+        var textPath = L.SVG.create('textPath');
+        textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
+        textPath.setAttribute('startOffset',labelset[m].offset_or_origin);
+        var text = labelset[m]._item.txNode.textContent;
+        labelset[m]._item.txNode.textContent="";
+        labelset[m]._item.txNode.appendChild(textPath);
+        svg.appendChild(labelset[m]._item.txNode);
+        this._nodes.push(labelset[m]._item.txNode);//add this labl to _nodes array, so we can erase it from the screen later
         if(this.options.showBBoxes){
           //here for testing purposes
           var polynode = this._createPolygonNode(labelset[m].poly(),labelset[m].overlaps);

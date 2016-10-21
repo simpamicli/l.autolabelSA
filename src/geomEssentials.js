@@ -115,7 +115,7 @@ var geomEssentials = {
       var normal = this.getNormalOnSegment(polyline[i],polyline[i+1]).multiplyBy(height);
       var current_segment=this.translateSegment(polyline[i],polyline[i+1],normal);
       //now check if current segment is connected well to previous
-      if(i>0){ //so -> it isn't first segment, and out_polyline has at leat two points
+      if(i>0){ //so -> it isn't first segment, and out_polyline has at least two points
         var pt_intersect = this.lineIntersection(out_polyline[out_polyline.length-2],out_polyline[out_polyline.length-1],current_segment[0],current_segment[1]);
         out_polyline[out_polyline.length-1] = pt_intersect;
         out_polyline.push(current_segment[1]);
@@ -184,7 +184,7 @@ var geomEssentials = {
   @param {Array} computed_lengths: precomputed lengths (if available) for polyline segments
   @returns {Object}:
   */
-  extractSubPolylineByOffsetValues:function(offset_start,offset_end,polyline,computed_lengths){
+  extractSubPolyline:function(offset_start,offset_end,polyline,computed_lengths){
     var start = this.getSegmentIdxAndDistByOffset(offset_start,polyline,computed_lengths),
         end = this.getSegmentIdxAndDistByOffset(offset_end,polyline,computed_lengths),
         start_point= this.interpolateOnPointSegment(polyline[start[0]],polyline[start[0]+1],(start[1]-offset_start)/computed_lengths[start[0]]),
@@ -322,12 +322,7 @@ var geomEssentials = {
       res[i][0]+=moveto[0]; res[i][1]+=moveto[1];
     }
     return res;
-  },
-
-  createPoly:function(width,height){
-    //TODO[createPoly]
   }
-
 }
 
 module.exports = geomEssentials;

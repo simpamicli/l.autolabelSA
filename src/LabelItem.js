@@ -36,6 +36,9 @@ module.exports = {
         basic_item.data=basic_item.layer._map.latLngToLayerPoint(basic_item.layer.getLatLngs()[0]); //so we adding only L.Point obj
       }
     }else{
+      if(basic_item.layer._parts.length==0)return;
+      basic_item.computed_lengths=[];
+      basic_item.totalLength=0;
       //this give possibility to read all parts to separate items
       basic_item.readData=function(partIndex){ //to read consequently
         if(!partIndex){var partIndex=0;};
@@ -44,12 +47,6 @@ module.exports = {
         var nextPart=++partIndex;
         if(nextPart<this.layer._parts.length)return nextPart;else return false;
       }
-    }
-
-    if(basic_item.layer_type()==1){
-      if(basic_item.layer._parts.length==0)return;
-      basic_item.computed_lengths=[];
-      basic_item.totalLength=0;
 
       basic_item.segCount = function(){return this.data.length -1};
 
@@ -70,6 +67,7 @@ module.exports = {
         return geomEssentials.getIndexBasedOnTotalLengthRandom(this.data,this.computed_lengths,this.totalLength);
       }
     }
+    
     return basic_item;
   },
 
@@ -91,7 +89,7 @@ module.exports = {
       _computePolyForLine:function(start_offset,item){
         var final_offset = start_offset + item.txSize.x;
         var end_offset=(final_offset<item.totalLength)?final_offset:item.totalLength;
-        var subPolyline = geomEssentials.extractSubPolylineByOffsetValues(start_offset,end_offset,item.data,item.computed_lengths);
+        var subPolyline = geomEssentials.extractSubPolyline(start_offset,end_offset,item.data,item.computed_lengths);
         return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
       },
 
