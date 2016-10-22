@@ -237,21 +237,15 @@
 	      }
 	    },
 	
-	    /**
-	    for test purposes now, creates a polygon node useing poly Array of points
-	    */
-	    _createPolygonNode:function(poly,highlited){
-	      var node = L.SVG.create('polygon');
-	      var points='';
-	      for(var i=0;i<poly.length;i++){
-	        points+=poly[i].x+','+poly[i].y+' ';
+	    addPolyToLayer:function(poly,overlaps,data_to_show){
+	      if(!this._polyLayer){
+	        this._polyLayer = L.featureGroup().addTo(this._map)
 	      }
-	      node.setAttribute('points', points.trim());
-	      if(highlited){
-	        node.setAttribute('style','fill: red; fill-opacity:0.3; stroke: black;');
-	      }
-	      else node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
-	      return node;
+	
+	      var latlngs=[]; for(var i in poly)latlngs.push(this._map.layerPointToLatLng(poly[i]));
+	      map_polygon = L.polygon([latlngs],{color:'yellow',fillOpacity:'0.5'});
+	      map_polygon.data_to_show = data_to_show;
+	      this._polyLayer.addLayer(map_polygon);
 	    },
 	
 	    /**
@@ -260,14 +254,18 @@
 	    _clearNodes:function() {
 	      var svg = this._map.options.renderer._container,  //to work with SVG
 	          i=svg.childNodes.length-1;
-	      while(i>1){ //because 0 is for g
+	      while(i>0){ //because 0 is for g
 	        var node = svg.childNodes[i--];
 	        if(node.id.search('auto_label')!==-1)svg.removeChild(node);
+	      }
+	      if(this._polyLayer){
+	        this._map.removeLayer(this._polyLayer);
+	        delete this._polyLayer;
 	      }
 	    },
 	
 	    /**
-	    renders computed labelset on the screen via svg    
+	    renders computed labelset on the screen via svg
 	    */
 	    _renderNodes:function(labelset){
 	      var svg =  this._map.options.renderer._container;  //to work with SVG
@@ -279,26 +277,23 @@
 	        }else if(curID!==labelset[m]._item.layer._path.id){ //new feature -> start offset from 0
 	          cur_zero_offset=0;
 	          curID = labelset[m]._item.layer._path.id;
-	        }else cur_zero_offset+=labelset[m-1].totalLength;
-	
+	        }else
+	         cur_zero_offset+=labelset[m-1]._item.totalLength;
 	        var textPath = L.SVG.create('textPath');
 	        textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
-	      //  textPath.setAttribute('startOffset',labelset[m].offset_or_origin);
-	        var text = labelset[m]._item.txNode.textContent;
-	        labelset[m]._item.txNode.textContent="";
-	        textPath.appendChild(document.createTextNode(text));
-	        labelset[m]._item.txNode.appendChild(textPath);
-	        labelset[m]._item.txNode.appendChild(textPath);
-	        labelset[m]._item.txNode.setAttribute('id','auto_label'+m);
-	        svg.appendChild(labelset[m]._item.txNode);
+	        textPath.setAttribute('startOffset',cur_zero_offset+labelset[m].offset_or_origin);
+	        textPath.appendChild(document.createTextNode(labelset[m]._item.text));
+	        var txNode = DOMEssentials.createSVGTextNode("",labelset[m]._item.style);
+	        txNode.appendChild(textPath);
+	        txNode.setAttribute('id','auto_label'+m);
+	        svg.appendChild(txNode);
 	        if(this.options.showBBoxes){
-	          //here for testing purposes
-	          //MAKE POLYGONS AS LEAFLET LAYER
-	          var polynode = this._createPolygonNode(labelset[m].poly(),labelset[m].overlaps);
-	          polynode.setAttribute('id','auto_label_poly'+m);
-	          svg.appendChild(polynode);
+	          this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+Math.round(cur_zero_offset+labelset[m].offset_or_origin)+'@'+labelset[m]._item.txSize.x);
 	        }
 	      }
+	      this._polyLayer.eachLayer(function(layer){
+	          layer.bindPopup(layer.data_to_show);
+	        });
 	    }
 	  }
 	)
@@ -1535,7 +1530,7 @@
 	  */
 	  obtainCandidateForPolyLineByRandomStartOffset:function(item){
 	    var random_offset = item.totalLength*Math.random();
-	    var candidate = itemFactory.candidatePosition(0,item);
+	    var candidate = itemFactory.candidatePosition(random_offset,item);
 	    return candidate;
 	  },
 	
@@ -1576,14 +1571,16 @@
 	module.exports = {
 	  /**
 	  a factory function for label items
-	  @param {TextNode} txNode: SVG TextNode
+	  @param {String} text:
+	  @param {String} style: text style
 	  @param {L.Point} txSize: size of bounding box for txNode
 	  @param {L.Layer} layer: a feature (Marker, Polyline, Path) to aquire data
 	  */
-	  labelItem:function(txNode,txSize,layer,hostArray){
+	  labelItem:function(text,style,txSize,layer,hostArray){
 	    var basic_item= {
 	      data:[],
-	      txNode:txNode,
+	      text:text,
+	      style:style,
 	      txSize:txSize,
 	      layer:layer,
 	      host:hostArray,
@@ -1636,7 +1633,7 @@
 	        return geomEssentials.getIndexBasedOnTotalLengthRandom(this.data,this.computed_lengths,this.totalLength);
 	      }
 	    }
-	    
+	
 	    return basic_item;
 	  },
 	
@@ -1705,7 +1702,7 @@
 	  @returns [Array] returns an array with values : {t:{content_node:SVG textnode},parts:feature parts,layertype}, then, in next funcs we add apoly param to t object, ir, its bounding polygon, layertype = 0 marker, 1 polyline, 2 polygon
 	  */
 	  readDataToLabel:function(){
-	    var pt  =[];
+	    var pt  =[],count=0;
 	    if(this._map){
 	      for(var i in this._map.autoLabeler._layers2label)
 	      if(this._map.getZoom()>this._map.autoLabeler._layers2label[i]._al_options.zoomToStartLabel)
@@ -1715,18 +1712,22 @@
 	        lg.eachLayer(function(layer){
 	          if(layer.feature)
 	          if(layer.feature.properties[lg._al_options.propertyName]){
-	            var node = DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle),
+	            var text=layer.feature.properties[lg._al_options.propertyName],
+	                style=lg._al_options.labelStyle,
+	                node = DOMEssentials.createSVGTextNode(text,style),
 	                size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-	            if(layer._path){
+	            if(layer._path)if(layer._parts.length>0){
 	              var id = 'pathautolabel-' + L.Util.stamp(layer);
 	              layer._path.setAttribute('id',id);
+	              layer.feature.properties.alabel_offset="";
+	              count++;
 	            }
-	            var firstItem = itemFactory.labelItem(node,size,layer,pt)
+	            var firstItem = itemFactory.labelItem(text,style,size,layer,pt)
 	            if(firstItem){
 	              var nextPartIndex=firstItem.readData();
 	              pt.push(firstItem);
 	              while(nextPartIndex){
-	                var item = itemFactory.labelItem(node,size,layer,pt); //create node template
+	                var item = itemFactory.labelItem(text,style,size,layer,pt); //create node template
 	                nextPartIndex=item.readData(nextPartIndex);
 	                pt.push(item);
 	              }

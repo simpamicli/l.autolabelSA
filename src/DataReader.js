@@ -14,7 +14,7 @@ var dataReader = {
   @returns [Array] returns an array with values : {t:{content_node:SVG textnode},parts:feature parts,layertype}, then, in next funcs we add apoly param to t object, ir, its bounding polygon, layertype = 0 marker, 1 polyline, 2 polygon
   */
   readDataToLabel:function(){
-    var pt  =[];
+    var pt  =[],count=0;
     if(this._map){
       for(var i in this._map.autoLabeler._layers2label)
       if(this._map.getZoom()>this._map.autoLabeler._layers2label[i]._al_options.zoomToStartLabel)
@@ -24,18 +24,22 @@ var dataReader = {
         lg.eachLayer(function(layer){
           if(layer.feature)
           if(layer.feature.properties[lg._al_options.propertyName]){
-            var node = DOMEssentials.createSVGTextNode(layer.feature.properties[lg._al_options.propertyName],lg._al_options.labelStyle),
+            var text=layer.feature.properties[lg._al_options.propertyName],
+                style=lg._al_options.labelStyle,
+                node = DOMEssentials.createSVGTextNode(text,style),
                 size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-            if(layer._path){
+            if(layer._path)if(layer._parts.length>0){
               var id = 'pathautolabel-' + L.Util.stamp(layer);
               layer._path.setAttribute('id',id);
+              layer.feature.properties.alabel_offset="";
+              count++;
             }
-            var firstItem = itemFactory.labelItem(node,size,layer,pt)
+            var firstItem = itemFactory.labelItem(text,style,size,layer,pt)
             if(firstItem){
               var nextPartIndex=firstItem.readData();
               pt.push(firstItem);
               while(nextPartIndex){
-                var item = itemFactory.labelItem(node,size,layer,pt); //create node template
+                var item = itemFactory.labelItem(text,style,size,layer,pt); //create node template
                 nextPartIndex=item.readData(nextPartIndex);
                 pt.push(item);
               }

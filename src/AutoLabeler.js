@@ -118,21 +118,15 @@ L.AutoLabeler = L.Evented.extend(
       }
     },
 
-    /**
-    for test purposes now, creates a polygon node useing poly Array of points
-    */
-    _createPolygonNode:function(poly,highlited){
-      var node = L.SVG.create('polygon');
-      var points='';
-      for(var i=0;i<poly.length;i++){
-        points+=poly[i].x+','+poly[i].y+' ';
+    addPolyToLayer:function(poly,overlaps,data_to_show){
+      if(!this._polyLayer){
+        this._polyLayer = L.featureGroup().addTo(this._map)
       }
-      node.setAttribute('points', points.trim());
-      if(highlited){
-        node.setAttribute('style','fill: red; fill-opacity:0.3; stroke: black;');
-      }
-      else node.setAttribute('style','fill: yellow; fill-opacity:0.1; stroke: black;');
-      return node;
+
+      var latlngs=[]; for(var i in poly)latlngs.push(this._map.layerPointToLatLng(poly[i]));
+      map_polygon = L.polygon([latlngs],{color:'yellow',fillOpacity:'0.5'});
+      map_polygon.data_to_show = data_to_show;
+      this._polyLayer.addLayer(map_polygon);
     },
 
     /**
@@ -141,14 +135,18 @@ L.AutoLabeler = L.Evented.extend(
     _clearNodes:function() {
       var svg = this._map.options.renderer._container,  //to work with SVG
           i=svg.childNodes.length-1;
-      while(i>1){ //because 0 is for g
+      while(i>0){ //because 0 is for g
         var node = svg.childNodes[i--];
         if(node.id.search('auto_label')!==-1)svg.removeChild(node);
+      }
+      if(this._polyLayer){
+        this._map.removeLayer(this._polyLayer);
+        delete this._polyLayer;
       }
     },
 
     /**
-    renders computed labelset on the screen via svg    
+    renders computed labelset on the screen via svg
     */
     _renderNodes:function(labelset){
       var svg =  this._map.options.renderer._container;  //to work with SVG
@@ -160,26 +158,23 @@ L.AutoLabeler = L.Evented.extend(
         }else if(curID!==labelset[m]._item.layer._path.id){ //new feature -> start offset from 0
           cur_zero_offset=0;
           curID = labelset[m]._item.layer._path.id;
-        }else cur_zero_offset+=labelset[m-1].totalLength;
-
+        }else
+         cur_zero_offset+=labelset[m-1]._item.totalLength;
         var textPath = L.SVG.create('textPath');
         textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
-      //  textPath.setAttribute('startOffset',labelset[m].offset_or_origin);
-        var text = labelset[m]._item.txNode.textContent;
-        labelset[m]._item.txNode.textContent="";
-        textPath.appendChild(document.createTextNode(text));
-        labelset[m]._item.txNode.appendChild(textPath);
-        labelset[m]._item.txNode.appendChild(textPath);
-        labelset[m]._item.txNode.setAttribute('id','auto_label'+m);
-        svg.appendChild(labelset[m]._item.txNode);
+        textPath.setAttribute('startOffset',cur_zero_offset+labelset[m].offset_or_origin);
+        textPath.appendChild(document.createTextNode(labelset[m]._item.text));
+        var txNode = DOMEssentials.createSVGTextNode("",labelset[m]._item.style);
+        txNode.appendChild(textPath);
+        txNode.setAttribute('id','auto_label'+m);
+        svg.appendChild(txNode);
         if(this.options.showBBoxes){
-          //here for testing purposes
-          //MAKE POLYGONS AS LEAFLET LAYER
-          var polynode = this._createPolygonNode(labelset[m].poly(),labelset[m].overlaps);
-          polynode.setAttribute('id','auto_label_poly'+m);
-          svg.appendChild(polynode);
+          this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+Math.round(cur_zero_offset+labelset[m].offset_or_origin)+'@'+labelset[m]._item.txSize.x);
         }
       }
+      this._polyLayer.eachLayer(function(layer){
+          layer.bindPopup(layer.data_to_show);
+        });
     }
   }
 )

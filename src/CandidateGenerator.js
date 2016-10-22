@@ -21,7 +21,7 @@ var candidateGenerator = {
   */
   obtainCandidateForPolyLineByRandomStartOffset:function(item){
     var random_offset = item.totalLength*Math.random();
-    var candidate = itemFactory.candidatePosition(0,item);
+    var candidate = itemFactory.candidatePosition(random_offset,item);
     return candidate;
   },
 

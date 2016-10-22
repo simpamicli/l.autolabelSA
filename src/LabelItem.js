@@ -7,14 +7,16 @@ var geomEssentials = require('./geomEssentials.js');
 module.exports = {
   /**
   a factory function for label items
-  @param {TextNode} txNode: SVG TextNode
+  @param {String} text:
+  @param {String} style: text style
   @param {L.Point} txSize: size of bounding box for txNode
   @param {L.Layer} layer: a feature (Marker, Polyline, Path) to aquire data
   */
-  labelItem:function(txNode,txSize,layer,hostArray){
+  labelItem:function(text,style,txSize,layer,hostArray){
     var basic_item= {
       data:[],
-      txNode:txNode,
+      text:text,
+      style:style,
       txSize:txSize,
       layer:layer,
       host:hostArray,
@@ -67,7 +69,7 @@ module.exports = {
         return geomEssentials.getIndexBasedOnTotalLengthRandom(this.data,this.computed_lengths,this.totalLength);
       }
     }
-    
+
     return basic_item;
   },
 

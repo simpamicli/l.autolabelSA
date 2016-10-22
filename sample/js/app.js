@@ -32,8 +32,9 @@ var countries_lr = L.geoJSON(countries).addTo(map);
 var rivers_lr = L.geoJSON(eurivers,{
   onEachFeature:function(feature,layer){
     layer.on('mouseover mousemove', function(e){
+      var content ='@'+layer._parts.length+'@'+ feature.properties.name + ' '+feature.properties.alabel_offset;
       var hover_bubble = new L.Rrose({ offset: new L.Point(0,-10), closeButton: false, autoPan: false })
-        .setContent(feature.properties.name)
+        .setContent(content)
         .setLatLng(e.latlng)
         .openOn(map);
     });
