@@ -20,17 +20,32 @@ module.exports = {
       txSize:txSize,
       layer:layer,
       host:hostArray,
+      _itemPoly:false, //all available textlabel positions for this label
       index:function(){
         return this.host.lastIndexOf(this);
       },
-      readData:function(){return false}, //a method stub
+      readData:function(){return false}, //a method stub,
       layer_type:function(){
         //TOFIX for polygon
         if(!this._layer_type)this._layer_type = (this.layer._parts.length>0)?1:0;
         return this._layer_type;
+      },
+
+      _getBoundary:function(){return false;}, //a method stub, to obtain polygon with all postions
+
+      /**
+      get all available positions for this item. Depending on layer_type -> diff funcs.
+      Used in clustering computation
+      */
+      getItemPoly:function(){
+        if(!this._itemPoly){
+          this._itemPoly =  this._getBoundary();
+        }
+        return this._itemPoly;
       }
     };
 
+    //Not a very proper way to do such deal
     if(basic_item.layer_type()==0){
       return;
       basic_item.readData = function(){
@@ -51,7 +66,6 @@ module.exports = {
       }
 
       basic_item.segCount = function(){return this.data.length -1};
-
       /**
       Get a segment from polyline part by it's offset
       @param {Number} offset: na offset for the polyline
@@ -61,13 +75,10 @@ module.exports = {
         return geomEssentials.getSegmentIdxAndDistByOffset(offset,this.data,this.computed_lengths);
       }
 
-      /**
-      get a random element from segments array of the item, assuming it is sorted lengths ascending order
-      probability is higher for longer segment
-      */
-      basic_item.getIndexBasedOnTotalLengthRandom=function(){
-        return geomEssentials.getIndexBasedOnTotalLengthRandom(this.data,this.computed_lengths,this.totalLength);
+      basic_item._getBoundary = function(){
+        return geomEssentials.computeLineBoundaryPolygon(this.data,this.txSize.y);
       }
+
     }
 
     return basic_item;

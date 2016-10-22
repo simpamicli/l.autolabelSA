@@ -400,6 +400,12 @@
 	    return result;
 	  },
 	
+	  /**
+	  using two points, computes A,B,C such as Ax+By+c=0 for these points.
+	  @param {L.Point} start: first point of segment
+	  @param {L.Point} finish: second point of segment
+	  @returns {Array}: [A,B,C]
+	  */
 	  computeCanonicCoeffs:function(start,finish){
 	    var ABC=[];
 	    ABC.push(start.y-finish.y);
@@ -525,6 +531,7 @@
 	  },
 	
 	  /**
+	  NOT USED TOFIX [getIndexBasedOnTotalLengthRandom] remove?
 	  based on https://blog.dotzero.ru/weighted-random-simple/
 	  get a random element from segments array of the item, assuming it is sorted lengths ascending order
 	  probability is higher for longer segment
@@ -581,6 +588,7 @@
 	  },
 	
 	  clipPoly:function(poly1,poly2){
+	    //TODO [clipPoly] may be we should edit actual algo -> to stop when first commpon point is found??
 	    var intersection = greinerHormann.intersection(poly1, poly2);
 	    if(!intersection)return [];
 	    if(intersection.length>0)return intersection[0];
@@ -1293,6 +1301,45 @@
 	  },
 	
 	  /**
+	  Divides all_items into clusters (or builds a graph), such as:
+	  cluster consists of items with potential label intersections, which are computed by intersecting each item's boundaries (itemPoly)
+	  Also: if free-of-intersections part of item's poly is capable for containing item's label, then such item is moved to separate cluster
+	  with only this item -> no further computation for this item at all
+	  After finishing clustering -> we applying simulatedAnnealing to each cluster independently, and thus, potentially, we
+	  decrease degree of a problem.
+	  @param {Array} all_items:
+	  @returns {Array}: two-dim array if clusters first level, indices of items secodn level.
+	  */
+	  computeClusters:function(all_items){
+	    var cluster_graph=[],overlap_matrix=[];
+	    //no need to intersect i,j items and j,i items
+	    for(var i in all_items)
+	      for(var j in all_items)if(i>j){
+	        if(overlap_matrix.length<i+1)overlap_matrix.push([i]); //so we have values stub for i item. first ielement with i-index indicates that item isn't moved to cluster yet
+	        var curClip=geomEssentials.clipPoly(all_items[i].getItemPoly(),all_items[j].getItemPoly());
+	        if(curClip.length>0){
+	          overlap_matrix[i].push(j); //so we know now i,j overlaps
+	          //on each intersection compute free space for this item
+	          if(!all_items[i].free_space)all_items[i].free_space = curClip;
+	          else all_items[i].free_space = geomEssentials.subtractPoly(all_items[i].free_space,curClip);
+	        }
+	      }
+	    //now make clustering
+	    //TODO [computeClusters] check if free space for  each item can fit inside item's labelItem, if so -> create separate cluster for this item, and mark it's index us used (-1)
+	    //TODO [computeClusters] separate items into clusters
+	    for(var i in overlap_matrix){
+	      var cluster = [];
+	      for(var j in overlap_matrix[i]){
+	        if(overlap_matrix[i,0]!==-1 && overlap_matrix[j,0]!==-1){ //cat interfering thinkinig!!! and dog also
+	          cluster.push(overlap_matrix[i,j]);
+	          overlap_matrix[j,0]=-1;
+	          overlap_matrix[i,0]=-1;
+	        }
+	      }
+	      if(cluster.length>0)cluster_graph.push(cluster);
+	    }
+	  },
+	  /**
 	  may be a custom function, must add result as last value of input array
 	  @param {Array} overlapping_values: input array of areas
 	  */
@@ -1584,17 +1631,32 @@
 	      txSize:txSize,
 	      layer:layer,
 	      host:hostArray,
+	      _itemPoly:false, //all available textlabel positions for this label
 	      index:function(){
 	        return this.host.lastIndexOf(this);
 	      },
-	      readData:function(){return false}, //a method stub
+	      readData:function(){return false}, //a method stub,
 	      layer_type:function(){
 	        //TOFIX for polygon
 	        if(!this._layer_type)this._layer_type = (this.layer._parts.length>0)?1:0;
 	        return this._layer_type;
+	      },
+	
+	      _getBoundary:function(){return false;}, //a method stub, to obtain polygon with all postions
+	
+	      /**
+	      get all available positions for this item. Depending on layer_type -> diff funcs.
+	      Used in clustering computation
+	      */
+	      getItemPoly:function(){
+	        if(!this._itemPoly){
+	          this._itemPoly =  this._getBoundary();
+	        }
+	        return this._itemPoly;
 	      }
 	    };
 	
+	    //Not a very proper way to do such deal
 	    if(basic_item.layer_type()==0){
 	      return;
 	      basic_item.readData = function(){
@@ -1615,7 +1677,6 @@
 	      }
 	
 	      basic_item.segCount = function(){return this.data.length -1};
-	
 	      /**
 	      Get a segment from polyline part by it's offset
 	      @param {Number} offset: na offset for the polyline
@@ -1625,13 +1686,10 @@
 	        return geomEssentials.getSegmentIdxAndDistByOffset(offset,this.data,this.computed_lengths);
 	      }
 	
-	      /**
-	      get a random element from segments array of the item, assuming it is sorted lengths ascending order
-	      probability is higher for longer segment
-	      */
-	      basic_item.getIndexBasedOnTotalLengthRandom=function(){
-	        return geomEssentials.getIndexBasedOnTotalLengthRandom(this.data,this.computed_lengths,this.totalLength);
+	      basic_item._getBoundary = function(){
+	        return geomEssentials.computeLineBoundaryPolygon(this.data,this.txSize.y);
 	      }
+	
 	    }
 	
 	    return basic_item;

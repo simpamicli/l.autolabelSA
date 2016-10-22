@@ -31,6 +31,12 @@ var geomEssentials = {
     return result;
   },
 
+  /**
+  using two points, computes A,B,C such as Ax+By+c=0 for these points.
+  @param {L.Point} start: first point of segment
+  @param {L.Point} finish: second point of segment
+  @returns {Array}: [A,B,C]
+  */
   computeCanonicCoeffs:function(start,finish){
     var ABC=[];
     ABC.push(start.y-finish.y);
@@ -156,6 +162,7 @@ var geomEssentials = {
   },
 
   /**
+  NOT USED TOFIX [getIndexBasedOnTotalLengthRandom] remove?
   based on https://blog.dotzero.ru/weighted-random-simple/
   get a random element from segments array of the item, assuming it is sorted lengths ascending order
   probability is higher for longer segment
@@ -212,6 +219,7 @@ var geomEssentials = {
   },
 
   clipPoly:function(poly1,poly2){
+    //TODO [clipPoly] may be we should edit actual algo -> to stop when first commpon point is found??
     var intersection = greinerHormann.intersection(poly1, poly2);
     if(!intersection)return [];
     if(intersection.length>0)return intersection[0];
