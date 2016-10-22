@@ -124,7 +124,6 @@
 	
 	L.AutoLabeler = L.Evented.extend(
 	 {
-	    _nodes:[], //an array for storing SVG node to draw while autolabelling
 	    _layers2label:[], //an array to know which layergroups are to label
 	    options:{
 	      showBBoxes:false, //display bounding boxes around texts
@@ -209,7 +208,7 @@
 	        var al = this._map.autoLabeler;
 	        var lDelay = this._map.autoLabeler.options.labelsDelay;
 	        this._map.autoLabeler._ctimerID=setTimeout(function(){al._doAutoLabel()},lDelay);
-	      }
+	      }else
 	      this._map.autoLabeler._clearNodes();
 	    },
 	
@@ -259,21 +258,16 @@
 	    clears label on the screen
 	    */
 	    _clearNodes:function() {
-	    var svg = this._map.options.renderer._container;  //to work with SVG
-	      for(var i=0;i<this._nodes.length;i++){//clear _nodes on screen
-	        try{
-	          svg.removeChild(this._nodes[i]);
-	        }catch(err){
-	          console.log(err+'  '+i);
-	        }
+	      var svg = this._map.options.renderer._container,  //to work with SVG
+	          i=svg.childNodes.length-1;
+	      while(i>1){ //because 0 is for g
+	        var node = svg.childNodes[i--];
+	        if(node.id.search('auto_label')!==-1)svg.removeChild(node);
 	      }
-	      this._nodes=[];
-	      // this._dodebug("Cleared nodes");
 	    },
 	
 	    /**
-	    renders computed labelset on the screen via svg
-	    TODO [_renderNodes] place textOnPath
+	    renders computed labelset on the screen via svg    
 	    */
 	    _renderNodes:function(labelset){
 	      var svg =  this._map.options.renderer._container;  //to work with SVG
@@ -294,13 +288,15 @@
 	        labelset[m]._item.txNode.textContent="";
 	        textPath.appendChild(document.createTextNode(text));
 	        labelset[m]._item.txNode.appendChild(textPath);
+	        labelset[m]._item.txNode.appendChild(textPath);
+	        labelset[m]._item.txNode.setAttribute('id','auto_label'+m);
 	        svg.appendChild(labelset[m]._item.txNode);
-	        this._nodes.push(labelset[m]._item.txNode);//add this labl to _nodes array, so we can erase it from the screen later
 	        if(this.options.showBBoxes){
 	          //here for testing purposes
+	          //MAKE POLYGONS AS LEAFLET LAYER
 	          var polynode = this._createPolygonNode(labelset[m].poly(),labelset[m].overlaps);
+	          polynode.setAttribute('id','auto_label_poly'+m);
 	          svg.appendChild(polynode);
-	          this._nodes.push(polynode); //add this polygon to _nodes array, so we can erase it from the screen later
 	        }
 	      }
 	    }
