@@ -1,4 +1,3 @@
-var webpack=require('webpack');
 module.exports = {
     entry: "./src/MapPart.js",
     output: {

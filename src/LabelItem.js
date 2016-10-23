@@ -99,9 +99,16 @@ module.exports = {
       @param {LabelItem} item:
       @returns {Array} : a poly bounding curved text
       */
-      _computePolyForLine:function(start_offset,item){
-        var final_offset = start_offset + item.txSize.x;
-        var end_offset=(final_offset<item.totalLength)?final_offset:item.totalLength;
+      _computePolyForLine:function(offset,item){
+        //at first, we need 2 check if item's label can fit this polyline starting at offset
+        var final_offset = offset + item.txSize.x,
+            end_offset=final_offset,
+            start_offset=offset;
+        if(final_offset>item.totalLength){
+          end_offset = item.totalLength;
+          start_offset = end_offset - item.txSize.y;
+          if(start_offset<0)start_offset=0;
+        }        
         var subPolyline = geomEssentials.extractSubPolyline(start_offset,end_offset,item.data,item.computed_lengths);
         return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
       },

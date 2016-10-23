@@ -220,6 +220,7 @@ var geomEssentials = {
 
   clipPoly:function(poly1,poly2){
     //TODO [clipPoly] may be we should edit actual algo -> to stop when first commpon point is found??
+    //for doing this, implement Shamos-Hoey Algorithm
     var intersection = greinerHormann.intersection(poly1, poly2);
     if(!intersection)return [];
     if(intersection.length>0)return intersection[0];

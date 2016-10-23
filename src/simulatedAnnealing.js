@@ -48,15 +48,18 @@ var simulatedAnnealing = {
     //TODO [computeClusters] separate items into clusters
     for(var i in overlap_matrix){
       var cluster = [];
-      for(var j in overlap_matrix[i]){
-        if(overlap_matrix[i,0]!==-1 && overlap_matrix[j,0]!==-1){ //cat interfering thinkinig!!! and dog also
-          cluster.push(overlap_matrix[i,j]);
-          overlap_matrix[j,0]=-1;
+      for(var j=1;j<overlap_matrix[i].length;j++){ //skip first, 'cause ut is marker'
+        var curInd = overlap_matrix[i,j];
+        if(overlap_matrix[i,0]!==-1 && overlap_matrix[curInd,0]!==-1){ //to be sure not to double data
+          cluster.push(curInd);
+          overlap_matrix[curInd,0]=-1;
           overlap_matrix[i,0]=-1;
         }
       }
       if(cluster.length>0)cluster_graph.push(cluster);
     }
+
+    return cluster_graph;
   },
   /**
   may be a custom function, must add result as last value of input array
@@ -185,6 +188,70 @@ var simulatedAnnealing = {
   },
 
   /**
+  @param {Array} items: an arr with labels and their available line segments to place
+  @returns {Array}: first is computed label placement array, 2nd is overlapping graph for this array, third is number of iterations.
+  */
+  _doAnnealing:function(items){
+    //init
+    var curset=this.getInitialRandomState(items), //current label postions
+        curvalues = this.evaluateCurSet(curset), //current overlaping matrix (conflict graph)
+        t=this.options.t0, stepcount=0, doexit=curvalues[curvalues.length-1] === 0,//if no overlaping at init state, do nothing and return current state
+        iterations=0, This=this;
+
+    var doReturn = function(){
+          This.markOveralppedLabels(curset,curvalues);
+          return [curset,curvalues,iterations];
+        }
+
+    while(true){
+     if(t<=this.options.tmin || stepcount>=this.options.maxsteps){
+        doReturn();
+        return;
+      }
+      stepcount++;
+      var improvements_count=0, no_improve_count=0;
+      for(var i=0;i<this.options.constant_temp_repositionings*curset.length;i++){ //while constant temperature, do some replacments
+        var oldvalues = curvalues.slice(0), //clone curvalues in order to return to ld ones
+            oldset = curset.slice(0),
+            overlapped_indexes = this.getOverlappingLabelsIndexes(curvalues,curset);
+        this.applyNewPositionsForLabelsInArray(overlapped_indexes,curset,all_items);
+        this.evaluateAfterSeveralChanged(curvalues,curset,overlapped_indexes);
+        iterations++;
+        if(curvalues[curvalues.length-1] === 0){ //no overlaps already
+          // This.dodebug('strict solution');
+          return doReturn();
+        }
+        if(iterations>this.options.maxtotaliterations){ //not to hang too long
+          return doReturn();
+        }
+        var delta = (oldvalues[oldvalues.length-1]-curvalues[curvalues.length-1]);
+        if(delta<0){//ie, new labeling is worse!
+          var P=1 - Math.exp(delta/t);
+          if(P>Math.random()){ //undo label reposition with probability of P
+            curvalues = oldvalues;
+            curset=oldset;
+            no_improve_count++;
+          }else { //approve new repositioning
+            improvements_count++;
+            no_improve_count=0;
+          }
+        }else{
+           improvements_count++;
+           no_improve_count=0;
+         }
+        if(no_improve_count>=this.options.max_noimprove_count*curset.length){ //it is already optimal
+            return doReturn();
+        }
+        if(improvements_count>=this.options.max_improvments_count*curset.length){
+          break; //of for
+        }
+      }
+      //decrease t
+      t*=this.options.decrease_value;
+    };
+  },
+
+  /**
   find optimal label placement based on simulated annealing approach, relies on paper https://www.eecs.harvard.edu/shieber/Biblio/Papers/jc.label.pdf
   @param {Array} all_items: an arr with labels and their available line segments to place
   @param {Object} options: TODO [simulatedAnnealing] add options description
@@ -196,72 +263,22 @@ var simulatedAnnealing = {
         else{
           var t0 = performance.now();
           this.processOptions(options);
-          //init
-          var curset=this.getInitialRandomState(all_items), //current label postions
-           curvalues = this.evaluateCurSet(curset), //current overlaping matrix (conflict graph)
-           t=this.options.t0, stepcount=0, doexit=curvalues[curvalues.length-1] === 0,//if no overlaping at init state, do nothing and return curretn state
-           iterations=0, This=this;
-
+          var clusterGraph=this.computeClusters(all_items),
+              total_overlaps=0,total_labels=0,total_iterations=0,totalSet=[];
+          for(var i in clusterGraph){
+            var curComp=this._doAnnealing(clusterGraph[i]);
+            total_overlaps+=curComp[1].pop();
+            total_labels+=curComp[0].length;
+            total_iterations+=curComp[2];
+            Array.prototype.push.apply(totalSet, curComp[0]);
+          }
           var doReturn = function(){
-              This.dodebug('overlapping labels count = '+curvalues.pop()+', total labels count = '+curset.length+', iterations = '+iterations);
+              This.dodebug('overlapping labels count = '+total_overlaps+', total labels count = '+total_labels+', iterations = '+iterations);
               This.dodebug('time to annealing = '+(performance.now()-t0));
               This.markOveralppedLabels(curset,curvalues);
-              callback.call(context,curset);
+               callback.call(context,curset);
             }
           }
-
-          //step
-          while(true){
-            //while(t>options.tmin && stepcount<options.maxsteps && !doexit
-            if(t<=this.options.tmin || stepcount>=this.options.maxsteps){
-              doReturn();
-              return;
-            }
-            stepcount++;
-            var improvements_count=0, no_improve_count=0;
-            for(var i=0;i<this.options.constant_temp_repositionings*curset.length;i++){ //while constant temperature, do some replacments
-              var oldvalues = curvalues.slice(0), //clone curvalues in order to return to ld ones
-                  oldset = curset.slice(0),
-                  overlapped_indexes = this.getOverlappingLabelsIndexes(curvalues,curset);
-              this.applyNewPositionsForLabelsInArray(overlapped_indexes,curset,all_items);
-              this.evaluateAfterSeveralChanged(curvalues,curset,overlapped_indexes);
-              iterations++;
-              if(curvalues[curvalues.length-1] === 0){ //no overlaps already
-                This.dodebug('strict solution');
-                doReturn();
-                return;
-              }
-              if(iterations>this.options.maxtotaliterations){ //not to hang too long
-                doReturn();
-                return;
-              }
-              var delta = (oldvalues[oldvalues.length-1]-curvalues[curvalues.length-1]);
-              if(delta<0){//ie, new labeling is worse!
-                var P=1 - Math.exp(delta/t);
-                if(P>Math.random()){ //undo label reposition with probability of P
-                  curvalues = oldvalues;
-                  curset=oldset;
-                  no_improve_count++;
-                }else { //approve new repositioning
-                  improvements_count++;
-                  no_improve_count=0;
-                }
-              }else{
-                 improvements_count++;
-                 no_improve_count=0;
-               }
-              if(no_improve_count>=this.options.max_noimprove_count*curset.length){ //it is already optimal
-                This.dodebug('stable state, finish on it');
-                doReturn();
-                return;
-              }
-              if(improvements_count>=this.options.max_improvments_count*curset.length){
-                break; //of for
-              }
-            }
-            //decrease t
-            t*=this.options.decrease_value;
-          };
       }
   }
 
