@@ -63,30 +63,15 @@ var dataReader = {
       this._map.autoLabeler._dodebug('too much OR no labels to compute('+all_items.length+')');
       return false;
     }
-    for(var i=0;i<all_items.length;i++){
-      var item = all_items[i];
-      if(item.layer_type()==0){//if point -> do nothing.
-        continue;
-      }
-      //else compute for lines and polygons, now it is only fo lines
-      if(item.layer_type()==1){
-        this._applyLineFeatureData(item); //in case where two or move separate polylines generated for original polyline while rendering (imagine big W cutted by screen iwndow)
-      }
+    var i=all_items.length-1;
+    while(i>=0)
+    {
+      all_items[i].applyFeatureData();
+      if(all_items[i].ignoreWhileLabel)all_items.splice(i,1); //remove if item does not suit it's label for some reason
+      i--;
     }
     return true;
   },
-
-  /**
-  Calculates total length for this polyline on screen, and lengths of each segments with their angles
-  @param {labelItem} item: an item to get above data to
-  */
-  _applyLineFeatureData:function(item){ //calculate some data once to increase performance
-      item.totalLength=0;
-      item.computed_lengths = geomEssentials.computeSegmentsLengths(item.data);
-      for(var k=0;k<item.computed_lengths.length;k++){
-        item.totalLength+=item.computed_lengths[k];
-      }
-  }
 }
 
 module.exports = dataReader;

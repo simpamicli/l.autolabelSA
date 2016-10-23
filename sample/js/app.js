@@ -45,7 +45,7 @@ var rivers_lr = L.geoJSON(eurivers,{
 
 rivers_lr.enableAutoLabel({zoomToStartLabel:6});
 
-var testGJ = L.geoJSON(testGEO).addTo(map);
-testGJ.enableAutoLabel({});
+// var testGJ = L.geoJSON(testGEO).addTo(map);
+// testGJ.enableAutoLabel({});
 
 map.options.renderer.padding = 0;

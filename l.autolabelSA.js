@@ -1067,30 +1067,15 @@
 	      this._map.autoLabeler._dodebug('too much OR no labels to compute('+all_items.length+')');
 	      return false;
 	    }
-	    for(var i=0;i<all_items.length;i++){
-	      var item = all_items[i];
-	      if(item.layer_type()==0){//if point -> do nothing.
-	        continue;
-	      }
-	      //else compute for lines and polygons, now it is only fo lines
-	      if(item.layer_type()==1){
-	        this._applyLineFeatureData(item); //in case where two or move separate polylines generated for original polyline while rendering (imagine big W cutted by screen iwndow)
-	      }
+	    var i=all_items.length-1;
+	    while(i>=0)
+	    {
+	      all_items[i].applyFeatureData();
+	      if(all_items[i].ignoreWhileLabel)all_items.splice(i,1); //remove if item does not suit it's label for some reason
+	      i--;
 	    }
 	    return true;
 	  },
-	
-	  /**
-	  Calculates total length for this polyline on screen, and lengths of each segments with their angles
-	  @param {labelItem} item: an item to get above data to
-	  */
-	  _applyLineFeatureData:function(item){ //calculate some data once to increase performance
-	      item.totalLength=0;
-	      item.computed_lengths = geomEssentials.computeSegmentsLengths(item.data);
-	      for(var k=0;k<item.computed_lengths.length;k++){
-	        item.totalLength+=item.computed_lengths[k];
-	      }
-	  }
 	}
 	
 	module.exports = dataReader;
@@ -1123,6 +1108,7 @@
 	      layer:layer,
 	      host:hostArray,
 	      _itemPoly:false, //all available textlabel positions for this label
+	      ignoreWhileLabel:false,
 	      index:function(){
 	        return this.host.lastIndexOf(this);
 	      },
@@ -1134,6 +1120,7 @@
 	      },
 	
 	      _getBoundary:function(){return false;}, //a method stub, to obtain polygon with all postions
+	      applyFeatureData:function(){}, //a method stub
 	
 	      /**
 	      get all available positions for this item. Depending on layer_type -> diff funcs.
@@ -1168,6 +1155,7 @@
 	      }
 	
 	      basic_item.segCount = function(){return this.data.length -1};
+	
 	      /**
 	      Get a segment from polyline part by it's offset
 	      @param {Number} offset: na offset for the polyline
@@ -1179,6 +1167,19 @@
 	
 	      basic_item._getBoundary = function(){
 	        return geomEssentials.computeLineBoundaryPolygon(this.data,this.txSize.y);
+	      }
+	
+	      /**
+	      Calculates total length for this polyline on screen, and lengths of each segments with their angles
+	      @param {labelItem} item: an item to get above data to
+	      */
+	      basic_item.applyFeatureData=function(){
+	        this.totalLength=0;
+	        this.computed_lengths = geomEssentials.computeSegmentsLengths(this.data);
+	        for(var k=0;k<this.computed_lengths.length;k++){
+	          this.totalLength+=this.computed_lengths[k];
+	        }
+	        this.ignoreWhileLabel=this.totalLength<this.txSize.x;
 	      }
 	
 	    }
@@ -1202,15 +1203,16 @@
 	      @returns {Array} : a poly bounding curved text
 	      */
 	      _computePolyForLine:function(offset,item){
+	        var offset=this.offset_or_origin,item=this._item;
 	        //at first, we need 2 check if item's label can fit this polyline starting at offset
 	        var final_offset = offset + item.txSize.x,
 	            end_offset=final_offset,
 	            start_offset=offset;
 	        if(final_offset>item.totalLength){
 	          end_offset = item.totalLength;
-	          start_offset = end_offset - item.txSize.y;
-	          if(start_offset<0)start_offset=0;
-	        }        
+	          start_offset = end_offset - item.txSize.x;
+	          this.offset_or_origin=start_offset;          
+	        }
 	        var subPolyline = geomEssentials.extractSubPolyline(start_offset,end_offset,item.data,item.computed_lengths);
 	        return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
 	      },
@@ -1222,7 +1224,7 @@
 	        switch(item.layer_type()){
 	          case 0:break;
 	          case 1:{
-	              this._poly = this._computePolyForLine(this.offset_or_origin,this._item);
+	              this._poly = this._computePolyForLine();
 	            }
 	          case 2:break;
 	        }
