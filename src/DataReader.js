@@ -36,6 +36,7 @@ var dataReader = {
             }
             var firstItem = itemFactory.labelItem(text,style,size,layer,pt)
             if(firstItem){
+              //TOOO [readData] if last point of prev part is equal to fisrt of next part -> use one item for these
               var nextPartIndex=firstItem.readData();
               pt.push(firstItem);
               while(nextPartIndex){

@@ -279,21 +279,25 @@
 	          curID = labelset[m]._item.layer._path.id;
 	        }else
 	         cur_zero_offset+=labelset[m-1]._item.totalLength;
+	         var cOffset =Math.round(cur_zero_offset+labelset[m].offset_or_origin);
+	         if(this.options.showBBoxes){
+	           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+cOffset+'@'+labelset[m]._item.txSize.x);
+	         }
+	        labelset[m]._item.layer.feature.properties.alabel_offset=m+'__'+cOffset;
 	        var textPath = L.SVG.create('textPath');
 	        textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
-	        textPath.setAttribute('startOffset',cur_zero_offset+labelset[m].offset_or_origin);
+	        textPath.setAttribute('startOffset',cOffset);
 	        textPath.appendChild(document.createTextNode(labelset[m]._item.text));
 	        var txNode = DOMEssentials.createSVGTextNode("",labelset[m]._item.style);
 	        txNode.appendChild(textPath);
 	        txNode.setAttribute('id','auto_label'+m);
 	        svg.appendChild(txNode);
-	        if(this.options.showBBoxes){
-	          this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+Math.round(cur_zero_offset+labelset[m].offset_or_origin)+'@'+labelset[m]._item.txSize.x);
-	        }
 	      }
-	      this._polyLayer.eachLayer(function(layer){
-	          layer.bindPopup(layer.data_to_show);
-	        });
+	      if(this.options.showBBoxes){
+	        this._polyLayer.eachLayer(function(layer){
+	            layer.bindPopup(layer.data_to_show);
+	          });
+	      }
 	    }
 	  }
 	)
@@ -1040,6 +1044,7 @@
 	            }
 	            var firstItem = itemFactory.labelItem(text,style,size,layer,pt)
 	            if(firstItem){
+	              //TOOO [readData] if last point of prev part is equal to fisrt of next part -> use one item for these
 	              var nextPartIndex=firstItem.readData();
 	              pt.push(firstItem);
 	              while(nextPartIndex){
@@ -1205,15 +1210,15 @@
 	      _computePolyForLine:function(offset,item){
 	        var offset=this.offset_or_origin,item=this._item;
 	        //at first, we need 2 check if item's label can fit this polyline starting at offset
-	        var final_offset = offset + item.txSize.x,
+	      /*  var final_offset = offset + item.txSize.x,
 	            end_offset=final_offset,
 	            start_offset=offset;
 	        if(final_offset>item.totalLength){
 	          end_offset = item.totalLength;
 	          start_offset = end_offset - item.txSize.x;
-	          this.offset_or_origin=start_offset;          
-	        }
-	        var subPolyline = geomEssentials.extractSubPolyline(start_offset,end_offset,item.data,item.computed_lengths);
+	          this.offset_or_origin=start_offset;
+	        }*/
+	        var subPolyline = geomEssentials.extractSubPolyline(offset,offset + item.txSize.x,item.data,item.computed_lengths);
 	        return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
 	      },
 	
@@ -1266,7 +1271,7 @@
 	  @returns {Array} : a poly bounding text, placed on corresponding point for offset on poluline and rotated to match segment's skew
 	  */
 	  obtainCandidateForPolyLineByRandomStartOffset:function(item){
-	    var random_offset = item.totalLength*Math.random();
+	    var random_offset =(item.totalLength - item.txSize.x>0) ?  (item.totalLength - item.txSize.x)*Math.random():0;
 	    var candidate = itemFactory.candidatePosition(random_offset,item);
 	    return candidate;
 	  },

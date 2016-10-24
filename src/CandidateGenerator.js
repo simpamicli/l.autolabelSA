@@ -20,7 +20,7 @@ var candidateGenerator = {
   @returns {Array} : a poly bounding text, placed on corresponding point for offset on poluline and rotated to match segment's skew
   */
   obtainCandidateForPolyLineByRandomStartOffset:function(item){
-    var random_offset = item.totalLength*Math.random();
+    var random_offset =(item.totalLength - item.txSize.x>0) ?  (item.totalLength - item.txSize.x)*Math.random():0;
     var candidate = itemFactory.candidatePosition(random_offset,item);
     return candidate;
   },

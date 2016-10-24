@@ -118,15 +118,15 @@ module.exports = {
       _computePolyForLine:function(offset,item){
         var offset=this.offset_or_origin,item=this._item;
         //at first, we need 2 check if item's label can fit this polyline starting at offset
-        var final_offset = offset + item.txSize.x,
+      /*  var final_offset = offset + item.txSize.x,
             end_offset=final_offset,
             start_offset=offset;
         if(final_offset>item.totalLength){
           end_offset = item.totalLength;
           start_offset = end_offset - item.txSize.x;
-          this.offset_or_origin=start_offset;          
-        }
-        var subPolyline = geomEssentials.extractSubPolyline(start_offset,end_offset,item.data,item.computed_lengths);
+          this.offset_or_origin=start_offset;
+        }*/
+        var subPolyline = geomEssentials.extractSubPolyline(offset,offset + item.txSize.x,item.data,item.computed_lengths);
         return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
       },
 

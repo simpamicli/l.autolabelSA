@@ -160,21 +160,25 @@ L.AutoLabeler = L.Evented.extend(
           curID = labelset[m]._item.layer._path.id;
         }else
          cur_zero_offset+=labelset[m-1]._item.totalLength;
+         var cOffset =Math.round(cur_zero_offset+labelset[m].offset_or_origin);
+         if(this.options.showBBoxes){
+           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+cOffset+'@'+labelset[m]._item.txSize.x);
+         }
+        labelset[m]._item.layer.feature.properties.alabel_offset=m+'__'+cOffset;
         var textPath = L.SVG.create('textPath');
         textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
-        textPath.setAttribute('startOffset',cur_zero_offset+labelset[m].offset_or_origin);
+        textPath.setAttribute('startOffset',cOffset);
         textPath.appendChild(document.createTextNode(labelset[m]._item.text));
         var txNode = DOMEssentials.createSVGTextNode("",labelset[m]._item.style);
         txNode.appendChild(textPath);
         txNode.setAttribute('id','auto_label'+m);
         svg.appendChild(txNode);
-        if(this.options.showBBoxes){
-          this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+Math.round(cur_zero_offset+labelset[m].offset_or_origin)+'@'+labelset[m]._item.txSize.x);
-        }
       }
-      this._polyLayer.eachLayer(function(layer){
-          layer.bindPopup(layer.data_to_show);
-        });
+      if(this.options.showBBoxes){
+        this._polyLayer.eachLayer(function(layer){
+            layer.bindPopup(layer.data_to_show);
+          });
+      }
     }
   }
 )
