@@ -272,12 +272,10 @@ var simulatedAnnealing = {
             total_iterations+=curComp[2];
             Array.prototype.push.apply(totalSet, curComp[0]);
           }
-          var doReturn = function(){
-              This.dodebug('overlapping labels count = '+total_overlaps+', total labels count = '+total_labels+', iterations = '+iterations);
-              This.dodebug('time to annealing = '+(performance.now()-t0));
-              This.markOveralppedLabels(curset,curvalues);
-               callback.call(context,curset);
-            }
+          This.dodebug('overlapping labels count = '+total_overlaps+', total labels count = '+total_labels+', iterations = '+iterations);
+          This.dodebug('time to annealing = '+(performance.now()-t0));
+          This.markOveralppedLabels(curset,curvalues);
+          callback.call(context,curset);
           }
       }
   }

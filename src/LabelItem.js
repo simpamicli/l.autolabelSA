@@ -61,10 +61,23 @@ module.exports = {
       //this give possibility to read all parts to separate items
       basic_item.readData=function(partIndex){ //to read consequently
         if(!partIndex){var partIndex=0;};
+        var nextPart = partIndex;
         this.data = this.layer._parts[partIndex];
         this.partIndex=partIndex; //store this to have ability to compute totalOffset, for example
-        var nextPart=++partIndex;
-        if(nextPart<this.layer._parts.length)return nextPart;else return false;
+        //while(nextPart<this.layer._parts.length){
+        // NEEDS TO BE FINISHED
+        var nextPart=partIndex+1;
+        if(nextPart<this.layer._parts.length){
+          var notClonedNow=true;
+          while((this.layer._parts[partIndex][this.layer._parts[partIndex].length-1].distanceTo(this.layer._parts[nextPart][0])<5)
+                 &&(nextPart+1<this.layer._parts.length)){
+            if(notClonedNow)this.data = this.layer._parts[partIndex].slice(0);
+            Array.prototype.push.apply(this.data, this.layer._parts[nextPart].slice(0));
+            partIndex++;
+            nextPart++;
+          }
+          return nextPart;
+        }else return false;
       }
 
       basic_item.segCount = function(){return this.data.length -1};
@@ -115,18 +128,11 @@ module.exports = {
       @param {LabelItem} item:
       @returns {Array} : a poly bounding curved text
       */
-      _computePolyForLine:function(offset,item){
-        var offset=this.offset_or_origin,item=this._item;
-        //at first, we need 2 check if item's label can fit this polyline starting at offset
-      /*  var final_offset = offset + item.txSize.x,
-            end_offset=final_offset,
-            start_offset=offset;
-        if(final_offset>item.totalLength){
-          end_offset = item.totalLength;
-          start_offset = end_offset - item.txSize.x;
-          this.offset_or_origin=start_offset;
-        }*/
-        var subPolyline = geomEssentials.extractSubPolyline(offset,offset + item.txSize.x,item.data,item.computed_lengths);
+      _computePolyForLine:function(){
+        var subPolyline = geomEssentials.extractSubPolyline(
+          this.offset_or_origin,
+          this.offset_or_origin + this._item.txSize.x,
+          this._item.data,this._item.computed_lengths);
         return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
       },
 
