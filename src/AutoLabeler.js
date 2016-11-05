@@ -1,6 +1,7 @@
 var DOMEssentials = require('./DOMEssentials.js');
 var geomEssentials = require('./geomEssentials.js');
 var simulatedAnnealing = require('./simulatedAnnealing.js');
+var annealingManager =require("./annealingManager.js");
 var dataReader = require('./DataReader.js');
 
 L.AutoLabeler = L.Evented.extend(
@@ -110,8 +111,9 @@ L.AutoLabeler = L.Evented.extend(
           this._clearNodes();
           return;
         }
-        var curset = simulatedAnnealing.getInitialRandomState(all_items);
-        this._renderNodes(curset);
+        var annMan = new annealingManager(all_items);
+        annMan.getInitialRandomState();
+        this._renderNodes(annMan.curset);
         //simulatedAnnealing.perform(all_items,this.options.annealingOptions,this._renderNodes,this);
       }else{
         this._clearNodes();

@@ -17,8 +17,8 @@ var map = new L.Map('map',{renderer:L.svg(),
                                maxtotaliterations:1000
                              }
                             }
-                           }).addLayer(osm).setView(new L.LatLng(48, 19), 8);
-map.addControl(new L.Control.Layers( {'Карта':osm, 'Спутник':googleHybrid}, {}));
+                          }).addLayer(osm).setView(new L.LatLng(48, 19), 8);
+//map.addControl(new L.Control.Layers( {'Карта':osm, 'Спутник':googleHybrid}, {}));
 
 map.autoLabeler.toggleAutoLabelling();
 

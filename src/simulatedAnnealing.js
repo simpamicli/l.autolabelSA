@@ -1,66 +1,32 @@
 'use strict';
 
 var geomEssentials = require("./geomEssentials.js");
-var candidateGenerator = require("./CandidateGenerator.js");
+var annealingManager =require("./annealingManager.js");
 
 var simulatedAnnealing = {
 
-  /**
-  computes the random set of positions for text placement with angles and text values
-  @param {Array} all_items: an array with {t,segs} elements, according to t -text of the polyline, segs - its accepted segments to label on. Result array is generated from items of this array
-  @returns {Array} : an array with elements such as return values of computeLabelCandidate function
-  */
-  getInitialRandomState:function(all_items){
-    var res=[];
-    for(var i=0;i<all_items.length;i++){
-      var candidate = candidateGenerator.computeLabelCandidate(i,all_items);
-      res.push(candidate);
-    }
-    return res;
-  },
+  aMan:"not assigned",
 
   /**
-  Divides all_items into clusters (or builds a graph), such as:
-  cluster consists of items with potential label intersections, which are computed by intersecting each item's boundaries (itemPoly)
-  Also: if free-of-intersections part of item's poly is capable for containing item's label, then such item is moved to separate cluster
-  with only this item -> no further computation for this item at all
-  After finishing clustering -> we applying simulatedAnnealing to each cluster independently, and thus, potentially, we
-  decrease degree of a problem.
-  @param {Array} all_items:
-  @returns {Array}: two-dim array if clusters first level, indices of items secodn level.
+  summarizing ovelapping of all layers. We store for each label it's total overlapping area with others, the sum values for all labels
+  @param {Array}:curset:
+  @returns {Array}: values of areas, last is sum
+  @memberof MapAutoLabelSupport#
   */
-  computeClusters:function(all_items){
-    var cluster_graph=[],overlap_matrix=[];
-    //no need to intersect i,j items and j,i items
-    for(var i in all_items)
-      for(var j in all_items)if(i>j){
-        if(overlap_matrix.length<i+1)overlap_matrix.push([i]); //so we have values stub for i item. first ielement with i-index indicates that item isn't moved to cluster yet
-        var curClip=geomEssentials.clipPoly(all_items[i].getItemPoly(),all_items[j].getItemPoly());
-        if(curClip.length>0){
-          overlap_matrix[i].push(j); //so we know now i,j overlaps
-          //on each intersection compute free space for this item
-          if(!all_items[i].free_space)all_items[i].free_space = curClip;
-          else all_items[i].free_space = geomEssentials.subtractPoly(all_items[i].free_space,curClip);
+  evaluateCurSet:function(aMan){
+    aMan.curvalues=[];
+    for(var i in aMan.curset){
+      for(var j in aMan.curset){
+        if(i>j){ //to exclude variants like compare (1,3) and then (3,1)
+        var curlabel_value=(conflictMatrix[i+j]>0)?geomEssentials.checkOverLappingArea(aMan.curset[i].poly(),aMan.curset[j].poly(),false):0;
+        curvalues.push(curlabel_value);
         }
       }
-    //now make clustering
-    //TODO [computeClusters] check if free space for  each item can fit inside item's labelItem, if so -> create separate cluster for this item, and mark it's index us used (-1)
-    //TODO [computeClusters] separate items into clusters
-    for(var i in overlap_matrix){
-      var cluster = [];
-      for(var j=1;j<overlap_matrix[i].length;j++){ //skip first, 'cause ut is marker'
-        var curInd = overlap_matrix[i,j];
-        if(overlap_matrix[i,0]!==-1 && overlap_matrix[curInd,0]!==-1){ //to be sure not to double data
-          cluster.push(curInd);
-          overlap_matrix[curInd,0]=-1;
-          overlap_matrix[i,0]=-1;
-        }
-      }
-      if(cluster.length>0)cluster_graph.push(cluster);
     }
-
-    return cluster_graph;
+    this.assignCostFunctionValuesToLastEl(aMan.curvalues);
   },
+
+
   /**
   may be a custom function, must add result as last value of input array
   @param {Array} overlapping_values: input array of areas
@@ -73,74 +39,9 @@ var simulatedAnnealing = {
     overlapping_values.push(res);
   },
 
-  /**
-  summarizing ovelapping of all layers. We store for each label it's total overlapping area with others, the sum values for all labels
-  @param {Array}:curset:
-  @returns {Array}: values of areas, last is sum
-  @memberof MapAutoLabelSupport#
-  */
-  evaluateCurSet:function(curset){
-    var overlap_values=[];
-    for(var i in curset){
-      for(var j in curset){
-        if(i>j){ //to exclude variants like compare (1,3) and then (3,1)
-        var curlabel_value=geomEssentials.checkOverLappingArea(curset[i].poly(),curset[j].poly(),this.options.minimizeTotalOverlappingArea);
-        //for each pair(i,j) push it's value into overlap_values array
-        //we know that we iterate through only lower triangle of matrix (i,j), so we can reconstruct i and j from overlap_values index and vice versa
-        //we do it to improve speed when recomputing ovelaps in each annealing iteration in order not to compute all overlaps (with high performance cost)
-        //istead we recompute areas only for changed label
-        overlap_values.push(curlabel_value);
-        }
-      }
-    }
-    this.assignCostFunctionValuesToLastEl(overlap_values);
-    return overlap_values;
-  },
 
-  markOveralppedLabels:function(curset,overlappedvalues){
-    var counter=0;
-    for(var i in curset){
-      for(var j in curset){
-        if(i>j){
-          if(overlappedvalues[counter]>0){
-            curset[i].overlaps = true;
-            curset[j].overlaps = true;
-            // this.dodebug(curset[i].t.content_node.textContent +' /// '+curset[j].t.content_node.textContent  )
-          }
-          counter++;
-        }
-      }
-    }
-  },
 
-  getOverlappingLabelsIndexes:function(curvalues,curset){
-    var counter=0, result=[];
-    for(var i in curset)
-     for(var j in curset)if(i>j){
-       if(curvalues[counter]>0){
-         result.push(i); result.push(j);
-       }
-       counter++;
-     }
-    return result;
-  },
 
-  /**
-  swaps position for a random label with another from this label's positions pool
-  @param {Number} index : index of label in all_items to select new random position from availavle choices.
-  @param {Array} curset: currently selected label postions
-  @param {Array} all_items: all available postions
-  @memberof MapAutoLabelSupport#
-  */
-  swapCandidateInLabelSetToNew:function(idx,curset,all_items){
-    var label_index = curset[idx].all_items_index();
-    var new_candidate = candidateGenerator.computeLabelCandidate(label_index,all_items);
-    curset[idx]=new_candidate;
-  },
-
-  applyNewPositionsForLabelsInArray:function(idx_array,curset,all_items){
-    for(var i in idx_array)this.swapCandidateInLabelSetToNew(idx_array[i],curset,all_items);
-  },
 
   /**
   calculates total overlapping area with knowlesge of previous value and what label was moved, affects curvalues
@@ -148,23 +49,23 @@ var simulatedAnnealing = {
   @param {Array} curset: current set of label with positions
   @param {Number} changedLabelIndex: an index of label which position we changed
   */
-  evaluateAfterSeveralChanged:function(curvalues,curset,changedLabels) {
+  evaluateAfterSeveralChanged:function(aMan,changedLabels) {
     var counter=0; //index to iterate through curvalue array
     while(changedLabels.length>0){
       var changedLabelIndex=changedLabels.pop();
-      for(var i=0;i<curset.length;i++){
-        for(var j=0;j<curset.length;j++){if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
+      for(var i=0;i<aMan.curset.length;i++){
+        for(var j=0;j<aMan.curset.length;j++){if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
           if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
-            var area=this.checkOverLappingArea(curset[i].poly(),curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
-            curvalues[counter]=area;
+            var area=this.checkOverLappingArea(aMan.curset[i].poly(),aMan.curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
+            aMan.curvalues[counter]=area;
             }
             counter++;
           }
         }
       }
     }
-    curvalues.pop(); //remove prev sum
-    this.assignCostFunctionValuesToLastEl(curvalues);
+    aMan.curvalues.pop(); //remove prev sum
+    this.assignCostFunctionValuesToLastEl(aMan.curvalues);
   },
 
   dodebug:function(message){
@@ -193,43 +94,37 @@ var simulatedAnnealing = {
   */
   _doAnnealing:function(items){
     //init
-    var curset=this.getInitialRandomState(items), //current label postions
-        curvalues = this.evaluateCurSet(curset), //current overlaping matrix (conflict graph)
-        t=this.options.t0, stepcount=0, doexit=curvalues[curvalues.length-1] === 0,//if no overlaping at init state, do nothing and return current state
-        iterations=0, This=this;
+    var annManager = new annealingManager(items);
+        annManager.getInitialRandomState(); //current label postions
+        this.evaluateCurSet(annManager); //current overlaping matrix (conflict graph)
+    var t=this.options.t0, stepcount=0, doexit=annManager.overlap_count()=== 0,//if no overlaping at init state, do nothing and return current state
+        iterations=0;
 
     var doReturn = function(){
-          This.markOveralppedLabels(curset,curvalues);
-          return [curset,curvalues,iterations];
+          annManager.markOveralppedLabels();
+          annManager.iterations=iterations;
+          return annManager;
         }
 
     while(true){
      if(t<=this.options.tmin || stepcount>=this.options.maxsteps){
-        doReturn();
-        return;
+        return doReturn();
       }
       stepcount++;
       var improvements_count=0, no_improve_count=0;
       for(var i=0;i<this.options.constant_temp_repositionings*curset.length;i++){ //while constant temperature, do some replacments
-        var oldvalues = curvalues.slice(0), //clone curvalues in order to return to ld ones
-            oldset = curset.slice(0),
-            overlapped_indexes = this.getOverlappingLabelsIndexes(curvalues,curset);
-        this.applyNewPositionsForLabelsInArray(overlapped_indexes,curset,all_items);
-        this.evaluateAfterSeveralChanged(curvalues,curset,overlapped_indexes);
+        annManager.saveOld();
+        var overlapped_indexes = annManager.getOverlappingLabelsIndexes();
+        annManager.applyNewPositionsForLabelsInArray(overlapped_indexes);
+        this.evaluateAfterSeveralChanged(annManager,overlapped_indexes);
         iterations++;
-        if(curvalues[curvalues.length-1] === 0){ //no overlaps already
-          // This.dodebug('strict solution');
-          return doReturn();
-        }
-        if(iterations>this.options.maxtotaliterations){ //not to hang too long
-          return doReturn();
-        }
-        var delta = (oldvalues[oldvalues.length-1]-curvalues[curvalues.length-1]);
+        if(aMan.overlap_count() === 0){ return doReturn(); }
+        if(iterations>this.options.maxtotaliterations){ return doReturn(); }
+        var delta = (annManager.old_overlap_count() - annManager.overlap_count());
         if(delta<0){//ie, new labeling is worse!
           var P=1 - Math.exp(delta/t);
           if(P>Math.random()){ //undo label reposition with probability of P
-            curvalues = oldvalues;
-            curset=oldset;
+            annManager.restoreOld();
             no_improve_count++;
           }else { //approve new repositioning
             improvements_count++;
@@ -246,8 +141,7 @@ var simulatedAnnealing = {
           break; //of for
         }
       }
-      //decrease t
-      t*=this.options.decrease_value;
+      t*=this.options.decrease_value; //decrease temp
     };
   },
 
@@ -263,22 +157,13 @@ var simulatedAnnealing = {
         else{
           var t0 = performance.now();
           this.processOptions(options);
-          var clusterGraph=this.computeClusters(all_items),
-              total_overlaps=0,total_labels=0,total_iterations=0,totalSet=[];
-          for(var i in clusterGraph){
-            var curComp=this._doAnnealing(clusterGraph[i]);
-            total_overlaps+=curComp[1].pop();
-            total_labels+=curComp[0].length;
-            total_iterations+=curComp[2];
-            Array.prototype.push.apply(totalSet, curComp[0]);
-          }
-          This.dodebug('overlapping labels count = '+total_overlaps+', total labels count = '+total_labels+', iterations = '+iterations);
-          This.dodebug('time to annealing = '+(performance.now()-t0));
-          This.markOveralppedLabels(curset,curvalues);
-          callback.call(context,curset);
+          var annRes = this._doAnnealing(all_item);
+          this.dodebug('overlapping labels count = '+annRes.overlap_count()+', total labels count = '+annRes.curset.length+', iterations = '+annRes.iterations);
+          this.dodebug('time to annealing = '+(performance.now()-t0));
+          callback.call(context,annRes.curset);
           }
       }
   }
 
 
-module.exports = simulatedAnnealing;
+//module.exports = simulatedAnnealing;
