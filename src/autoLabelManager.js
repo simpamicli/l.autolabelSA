@@ -1,6 +1,7 @@
 var candidateGenerator = require("./CandidateGenerator.js");
+var geomEssentials = require("./geomEssentials.js");
 
-var annealingManager = function(all_items){
+var autoLabelManager = function(all_items){
   var result = {
     items:all_items,
     curset:[],
@@ -10,6 +11,10 @@ var annealingManager = function(all_items){
     _oldset:[],
     overlap_count:function(){
       return (this.curvalues.length>0)?this.curvalues[this.curvalues.length-1]:0;
+    },
+
+    isDegenerate:function(){
+      return this.items.length ==0;
     },
 
     saveOld:function(){
@@ -31,6 +36,7 @@ var annealingManager = function(all_items){
     @returns {Array} : an array with elements such as return values of computeLabelCandidate function
     */
     getInitialRandomState:function(){
+      this.compConflictMatrix();
       this.curset=[];
       for(var i=0;i<this.items.length;i++){
         var candidate = candidateGenerator.computeLabelCandidate(i,this.items);
@@ -112,4 +118,4 @@ var annealingManager = function(all_items){
   return result;
 }
 
-module.exports = annealingManager;
+module.exports = autoLabelManager;

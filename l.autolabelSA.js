@@ -120,8 +120,8 @@
 	var DOMEssentials = __webpack_require__(2);
 	var geomEssentials = __webpack_require__(3);
 	var simulatedAnnealing = __webpack_require__(9);
-	var annealingManager =__webpack_require__(13);
-	var dataReader = __webpack_require__(10);
+	var autoLabelManager =__webpack_require__(14);
+	var dataReader = __webpack_require__(13);
 	
 	L.AutoLabeler = L.Evented.extend(
 	 {
@@ -230,10 +230,12 @@
 	          this._clearNodes();
 	          return;
 	        }
-	        var annMan = new annealingManager(all_items);
-	        annMan.getInitialRandomState();
-	        this._renderNodes(annMan.curset);
-	        //simulatedAnnealing.perform(all_items,this.options.annealingOptions,this._renderNodes,this);
+	        var annMan = new autoLabelManager(all_items);
+	        // annMan.getInitialRandomState();
+	        // this._renderNodes(annMan.curset);
+	        var annPerformer = new simulatedAnnealing(annMan,this.options.annealingOptions);
+	        annPerformer.perform(this._renderNodes,this);
+	        //simulatedAnnealing.perform(annMan,this.options.annealingOptions,this._renderNodes,this);
 	      }else{
 	        this._clearNodes();
 	      }
@@ -596,6 +598,7 @@
 	  clipPoly:function(poly1,poly2){
 	    //TODO [clipPoly] may be we should edit actual algo -> to stop when first commpon point is found??
 	    //for doing this, implement Shamos-Hoey Algorithm
+	    //if(!poly1 || poly2)return [];
 	    var intersection = greinerHormann.intersection(poly1, poly2);
 	    if(!intersection)return [];
 	    if(intersection.length>0)return intersection[0];
@@ -1289,71 +1292,58 @@
 	'use strict';
 	
 	var geomEssentials = __webpack_require__(3);
-	var annealingManager =__webpack_require__(13);
+	var autoLabelManager =__webpack_require__(14);
+	var candidateGenerator =__webpack_require__(11);
 	
-	var simulatedAnnealing = {
-	
-	  aMan:"not assigned",
-	
+	var simulatedAnnealing =function(autoLabelMan,options) {
+	  var result = {
+	  aManager:autoLabelMan,
 	  /**
 	  summarizing ovelapping of all layers. We store for each label it's total overlapping area with others, the sum values for all labels
 	  @param {Array}:curset:
 	  @returns {Array}: values of areas, last is sum
 	  @memberof MapAutoLabelSupport#
 	  */
-	  evaluateCurSet:function(aMan){
-	    aMan.curvalues=[];
-	    for(var i in aMan.curset){
-	      for(var j in aMan.curset){
+	  evaluateCurSet:function(){
+	    this.aManager.curvalues=[];
+	    for(var i in this.aManager.curset)
+	      for(var j in this.aManager.curset)
 	        if(i>j){ //to exclude variants like compare (1,3) and then (3,1)
-	        var curlabel_value=(conflictMatrix[i+j]>0)?geomEssentials.checkOverLappingArea(aMan.curset[i].poly(),aMan.curset[j].poly(),false):0;
-	        curvalues.push(curlabel_value);
+	        //var curlabel_value=(this.aManager.conflictMatrix[i+j]>0)?geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false):0;
+	        var curlabel_value = geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false);
+	        this.aManager.curvalues.push(curlabel_value);
 	        }
-	      }
-	    }
-	    this.assignCostFunctionValuesToLastEl(aMan.curvalues);
+	    this.assignCostFunctionValuesToLastEl();
 	  },
-	
 	
 	  /**
 	  may be a custom function, must add result as last value of input array
 	  @param {Array} overlapping_values: input array of areas
 	  */
-	  assignCostFunctionValuesToLastEl:function(overlapping_values){
+	  assignCostFunctionValuesToLastEl:function(){
 	    var res=0;
-	    for(var i in overlapping_values){
-	      res+=overlapping_values[i];
-	    }
-	    overlapping_values.push(res);
+	    for(var i in this.aManager.curvalues)res+=this.aManager.curvalues[i];
+	    this.aManager.curvalues.push(res);
 	  },
-	
-	
-	
-	
 	
 	  /**
 	  calculates total overlapping area with knowlesge of previous value and what label was moved, affects curvalues
-	  @param {Array} curvalue: array of float computed at previous step or initital step, consist of elements of lower-triangluar matrix (i,j) of values of overlapping areas for (i,j) els of curset
-	  @param {Array} curset: current set of label with positions
-	  @param {Number} changedLabelIndex: an index of label which position we changed
 	  */
-	  evaluateAfterSeveralChanged:function(aMan,changedLabels) {
+	  evaluateAfterSeveralChanged:function(changedLabels) {
 	    var counter=0; //index to iterate through curvalue array
 	    while(changedLabels.length>0){
 	      var changedLabelIndex=changedLabels.pop();
-	      for(var i=0;i<aMan.curset.length;i++){
-	        for(var j=0;j<aMan.curset.length;j++){if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
+	      for(var i=0;i<this.aManager.curset.length;i++)
+	        for(var j=0;j<this.aManager.curset.length;j++)if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
 	          if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
-	            var area=this.checkOverLappingArea(aMan.curset[i].poly(),aMan.curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
-	            aMan.curvalues[counter]=area;
+	            var area=this.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
+	            this.aManager.curvalues[counter]=area;
 	            }
 	            counter++;
 	          }
-	        }
-	      }
 	    }
-	    aMan.curvalues.pop(); //remove prev sum
-	    this.assignCostFunctionValuesToLastEl(aMan.curvalues);
+	    this.aManager.curvalues.pop(); //remove prev sum
+	    this.assignCostFunctionValuesToLastEl();
 	  },
 	
 	  dodebug:function(message){
@@ -1376,43 +1366,38 @@
 	    candidateGenerator.options.lineDiscreteStepPx = this.options.lineDiscreteStepPx || candidateGenerator.options.lineDiscreteStepPx; //pixels
 	  },
 	
+	  _doReturn:function(iterations){
+	    this.aManager.markOveralppedLabels();
+	    this.aManager.iterations=iterations;
+	  },
+	
 	  /**
 	  @param {Array} items: an arr with labels and their available line segments to place
 	  @returns {Array}: first is computed label placement array, 2nd is overlapping graph for this array, third is number of iterations.
 	  */
-	  _doAnnealing:function(items){
+	  _doAnnealing:function(){
 	    //init
-	    var annManager = new annealingManager(items);
-	        annManager.getInitialRandomState(); //current label postions
-	        this.evaluateCurSet(annManager); //current overlaping matrix (conflict graph)
-	    var t=this.options.t0, stepcount=0, doexit=annManager.overlap_count()=== 0,//if no overlaping at init state, do nothing and return current state
+	    this.aManager.getInitialRandomState(); //current label postions
+	    this.evaluateCurSet(); //current overlaping matrix (conflict graph)
+	    var t=this.options.t0, stepcount=0, doexit=this.aManager.overlap_count()=== 0,//if no overlaping at init state, do nothing and return current state
 	        iterations=0;
-	
-	    var doReturn = function(){
-	          annManager.markOveralppedLabels();
-	          annManager.iterations=iterations;
-	          return annManager;
-	        }
-	
 	    while(true){
-	     if(t<=this.options.tmin || stepcount>=this.options.maxsteps){
-	        return doReturn();
-	      }
+	      if(t<=this.options.tmin || stepcount>=this.options.maxsteps) return this._doReturn(iterations);
 	      stepcount++;
 	      var improvements_count=0, no_improve_count=0;
-	      for(var i=0;i<this.options.constant_temp_repositionings*curset.length;i++){ //while constant temperature, do some replacments
-	        annManager.saveOld();
-	        var overlapped_indexes = annManager.getOverlappingLabelsIndexes();
-	        annManager.applyNewPositionsForLabelsInArray(overlapped_indexes);
-	        this.evaluateAfterSeveralChanged(annManager,overlapped_indexes);
+	      for(var i=0;i<this.options.constant_temp_repositionings*this.aManager.curset.length;i++){ //while constant temperature, do some replacments
+	        this.aManager.saveOld();
+	        var overlapped_indexes = this.aManager.getOverlappingLabelsIndexes();
+	        this.aManager.applyNewPositionsForLabelsInArray(overlapped_indexes);
+	        this.evaluateAfterSeveralChanged(overlapped_indexes);
 	        iterations++;
-	        if(aMan.overlap_count() === 0){ return doReturn(); }
-	        if(iterations>this.options.maxtotaliterations){ return doReturn(); }
-	        var delta = (annManager.old_overlap_count() - annManager.overlap_count());
+	        if(this.aManager.overlap_count() === 0){ return this._doReturn(iterations); }
+	        if(iterations>this.options.maxtotaliterations){ return this._doReturn(iterations); }
+	        var delta = (this.aManager.old_overlap_count() - this.aManager.overlap_count());
 	        if(delta<0){//ie, new labeling is worse!
 	          var P=1 - Math.exp(delta/t);
 	          if(P>Math.random()){ //undo label reposition with probability of P
-	            annManager.restoreOld();
+	            this.aManager.restoreOld();
 	            no_improve_count++;
 	          }else { //approve new repositioning
 	            improvements_count++;
@@ -1423,7 +1408,7 @@
 	           no_improve_count=0;
 	         }
 	        if(no_improve_count>=this.options.max_noimprove_count*curset.length){ //it is already optimal
-	            return doReturn();
+	            return this._doReturn(iterations);
 	        }
 	        if(improvements_count>=this.options.max_improvments_count*curset.length){
 	          break; //of for
@@ -1440,109 +1425,84 @@
 	  @param {Object} callback: a function to gather results and use them to render
 	  @param {Object} context: a parent conext of the function  above (arguments.callee - but deprecated)
 	  */
-	  perform:function(all_items,options,callback,context) {
-	        if(all_items.length<1){callback([])} //do nothing if no segments
+	  perform:function(callback,context) {
+	        if(this.aManager.isDegenerate()){callback([])} //do nothing if no segments
 	        else{
 	          var t0 = performance.now();
-	          this.processOptions(options);
-	          var annRes = this._doAnnealing(all_item);
-	          this.dodebug('overlapping labels count = '+annRes.overlap_count()+', total labels count = '+annRes.curset.length+', iterations = '+annRes.iterations);
+	          this._doAnnealing();
+	          this.dodebug('overlapping labels count = '+this.aManager.overlap_count()+
+	                       ', total labels count = '+this.aManager.curset.length+', iterations = '+this.aManager.iterations);
 	          this.dodebug('time to annealing = '+(performance.now()-t0));
-	          callback.call(context,annRes.curset);
+	          callback.call(context,this.aManager.curset);
 	          }
 	      }
+	    }
+	    result.processOptions(options);
+	    return result;
 	  }
 	
 	
-	//module.exports = simulatedAnnealing;
+	module.exports = simulatedAnnealing;
 
 
 /***/ },
-/* 10 */
+/* 10 */,
+/* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
-	/**
-	Module to extract sufficient info to label data on the map
-	*/
-	
-	"use strict";
-	
-	var DOMEssentials = __webpack_require__(2);
 	var geomEssentials = __webpack_require__(3);
-	var itemFactory = __webpack_require__(11);
+	var itemFactory = __webpack_require__(12);
 	
-	var dataReader = {
-	  /**
-	  creates an array of features's segments for each feature  of layers2label's layers on screen along with SVG text corresponding to
-	  @returns [Array] returns an array with values : {t:{content_node:SVG textnode},parts:feature parts,layertype}, then, in next funcs we add apoly param to t object, ir, its bounding polygon, layertype = 0 marker, 1 polyline, 2 polygon
-	  */
-	  readDataToLabel:function(){
-	    var pt  =[],count=0;
-	    if(this._map){
-	      for(var i in this._map.autoLabeler._layers2label)
-	      if(this._map.getZoom()>this._map.autoLabeler._layers2label[i]._al_options.zoomToStartLabel)
-	      {
-	        var lg=this._map.autoLabeler._layers2label[i],
-	            map_to_add = this._map;
-	        lg.eachLayer(function(layer){
-	          if(layer.feature)
-	          if(layer.feature.properties[lg._al_options.propertyName]){
-	            var text=layer.feature.properties[lg._al_options.propertyName],
-	                style=lg._al_options.labelStyle,
-	                node = DOMEssentials.createSVGTextNode(text,style),
-	                size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-	            if(layer._path)if(layer._parts.length>0){
-	              var id = 'pathautolabel-' + L.Util.stamp(layer);
-	              layer._path.setAttribute('id',id);
-	              layer.feature.properties.alabel_offset="";
-	              count++;
-	            }
-	            var firstItem = itemFactory.labelItem(text,style,size,layer,pt)
-	            if(firstItem){
-	              //TOOO [readData] if last point of prev part is equal to fisrt of next part -> use one item for these
-	              var nextPartIndex=firstItem.readData();
-	              pt.push(firstItem);
-	              while(nextPartIndex){
-	                var item = itemFactory.labelItem(text,style,size,layer,pt); //create node template
-	                nextPartIndex=item.readData(nextPartIndex);
-	                pt.push(item);
-	              }
-	            }
-	          }
-	        });
-	      }
-	    }
-	    return pt;
+	var candidateGenerator = {
+	  options:{
+	    lineDiscreteStepPx:3
+	  },
+	
+	  obtainCandidateForPoint:function(point){
+	    //TODO[obtainCandidateForPoint]
+	  },
+	
+	  obtainCandidateForPoly:function(polygon){
+	    //TODO[obtainCandidateForPoly]
 	  },
 	
 	  /**
-	  extracts good segments from available polyline parts and converts to use in next procedures of pos estimation
-	  @param {Array} all_items:
-	  @param {Set} options: options are:  {integer} maxlabelcount: if more labels in all_items, then do nothing
+	  Get a poly (simple with no text along path)for random offset on the polyline
+	  @param {Object} item: item from prepareCurSegments's allsegs
+	  @returns {Array} : a poly bounding text, placed on corresponding point for offset on poluline and rotated to match segment's skew
 	  */
-	  prepareCurSegments:function(all_items,options){
-	    options = options || {};
-	    options.maxlabelcount=options.maxlabelcount || 100;
-	    if(all_items.length>options.maxlabelcount || all_items.length==0){
-	      this._map.autoLabeler._dodebug('too much OR no labels to compute('+all_items.length+')');
-	      return false;
+	  obtainCandidateForPolyLineByRandomStartOffset:function(item){
+	    var random_offset =(item.totalLength - item.txSize.x>0) ?  (item.totalLength - item.txSize.x)*Math.random():0;
+	    var candidate = itemFactory.candidatePosition(random_offset,item);
+	    return candidate;
+	  },
+	
+	  /**
+	  computes label candidate object to place on map
+	  @param {Number} i: an index in all_items array to obtain label candidate for i-item
+	  @returns {candidatePosition} : generated candidate
+	  */
+	  computeLabelCandidate:function(i,all_items) {
+	    var candidate;
+	    switch (all_items[i].layer_type()) {
+	      case 0:
+	        break;
+	      case 1:{
+	          candidate=this.obtainCandidateForPolyLineByRandomStartOffset(all_items[i]);
+	          break;
+	        }
+	      case 2:
+	        break;
 	    }
-	    var i=all_items.length-1;
-	    while(i>=0)
-	    {
-	      all_items[i].applyFeatureData();
-	      if(all_items[i].ignoreWhileLabel)all_items.splice(i,1); //remove if item does not suit it's label for some reason
-	      i--;
-	    }
-	    return true;
+	    return candidate;
 	  },
 	}
 	
-	module.exports = dataReader;
+	module.exports = candidateGenerator;
 
 
 /***/ },
-/* 11 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*
@@ -1707,67 +1667,97 @@
 
 
 /***/ },
-/* 12 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var geomEssentials = __webpack_require__(3);
-	var itemFactory = __webpack_require__(11);
-	
-	var candidateGenerator = {
-	  options:{
-	    lineDiscreteStepPx:3
-	  },
-	
-	  obtainCandidateForPoint:function(point){
-	    //TODO[obtainCandidateForPoint]
-	  },
-	
-	  obtainCandidateForPoly:function(polygon){
-	    //TODO[obtainCandidateForPoly]
-	  },
-	
-	  /**
-	  Get a poly (simple with no text along path)for random offset on the polyline
-	  @param {Object} item: item from prepareCurSegments's allsegs
-	  @returns {Array} : a poly bounding text, placed on corresponding point for offset on poluline and rotated to match segment's skew
-	  */
-	  obtainCandidateForPolyLineByRandomStartOffset:function(item){
-	    var random_offset =(item.totalLength - item.txSize.x>0) ?  (item.totalLength - item.txSize.x)*Math.random():0;
-	    var candidate = itemFactory.candidatePosition(random_offset,item);
-	    return candidate;
-	  },
-	
-	  /**
-	  computes label candidate object to place on map
-	  @param {Number} i: an index in all_items array to obtain label candidate for i-item
-	  @returns {candidatePosition} : generated candidate
-	  */
-	  computeLabelCandidate:function(i,all_items) {
-	    var candidate;
-	    switch (all_items[i].layer_type()) {
-	      case 0:
-	        break;
-	      case 1:{
-	          candidate=this.obtainCandidateForPolyLineByRandomStartOffset(all_items[i]);
-	          break;
-	        }
-	      case 2:
-	        break;
-	    }
-	    return candidate;
-	  },
-	}
-	
-	module.exports = candidateGenerator;
-
-
-/***/ },
 /* 13 */
 /***/ function(module, exports, __webpack_require__) {
 
-	var candidateGenerator = __webpack_require__(12);
+	/**
+	Module to extract sufficient info to label data on the map
+	*/
 	
-	var annealingManager = function(all_items){
+	"use strict";
+	
+	var DOMEssentials = __webpack_require__(2);
+	var geomEssentials = __webpack_require__(3);
+	var itemFactory = __webpack_require__(12);
+	
+	var dataReader = {
+	  /**
+	  creates an array of features's segments for each feature  of layers2label's layers on screen along with SVG text corresponding to
+	  @returns [Array] returns an array with values : {t:{content_node:SVG textnode},parts:feature parts,layertype}, then, in next funcs we add apoly param to t object, ir, its bounding polygon, layertype = 0 marker, 1 polyline, 2 polygon
+	  */
+	  readDataToLabel:function(){
+	    var pt  =[],count=0;
+	    if(this._map){
+	      for(var i in this._map.autoLabeler._layers2label)
+	      if(this._map.getZoom()>this._map.autoLabeler._layers2label[i]._al_options.zoomToStartLabel)
+	      {
+	        var lg=this._map.autoLabeler._layers2label[i],
+	            map_to_add = this._map;
+	        lg.eachLayer(function(layer){
+	          if(layer.feature)
+	          if(layer.feature.properties[lg._al_options.propertyName]){
+	            var text=layer.feature.properties[lg._al_options.propertyName],
+	                style=lg._al_options.labelStyle,
+	                node = DOMEssentials.createSVGTextNode(text,style),
+	                size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
+	            if(layer._path)if(layer._parts.length>0){
+	              var id = 'pathautolabel-' + L.Util.stamp(layer);
+	              layer._path.setAttribute('id',id);
+	              layer.feature.properties.alabel_offset="";
+	              count++;
+	            }
+	            var firstItem = itemFactory.labelItem(text,style,size,layer,pt)
+	            if(firstItem){
+	              //TOOO [readData] if last point of prev part is equal to fisrt of next part -> use one item for these
+	              var nextPartIndex=firstItem.readData();
+	              pt.push(firstItem);
+	              while(nextPartIndex){
+	                var item = itemFactory.labelItem(text,style,size,layer,pt); //create node template
+	                nextPartIndex=item.readData(nextPartIndex);
+	                pt.push(item);
+	              }
+	            }
+	          }
+	        });
+	      }
+	    }
+	    return pt;
+	  },
+	
+	  /**
+	  extracts good segments from available polyline parts and converts to use in next procedures of pos estimation
+	  @param {Array} all_items:
+	  @param {Set} options: options are:  {integer} maxlabelcount: if more labels in all_items, then do nothing
+	  */
+	  prepareCurSegments:function(all_items,options){
+	    options = options || {};
+	    options.maxlabelcount=options.maxlabelcount || 100;
+	    if(all_items.length>options.maxlabelcount || all_items.length==0){
+	      this._map.autoLabeler._dodebug('too much OR no labels to compute('+all_items.length+')');
+	      return false;
+	    }
+	    var i=all_items.length-1;
+	    while(i>=0)
+	    {
+	      all_items[i].applyFeatureData();
+	      if(all_items[i].ignoreWhileLabel)all_items.splice(i,1); //remove if item does not suit it's label for some reason
+	      i--;
+	    }
+	    return true;
+	  },
+	}
+	
+	module.exports = dataReader;
+
+
+/***/ },
+/* 14 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var candidateGenerator = __webpack_require__(11);
+	var geomEssentials = __webpack_require__(3);
+	
+	var autoLabelManager = function(all_items){
 	  var result = {
 	    items:all_items,
 	    curset:[],
@@ -1777,6 +1767,10 @@
 	    _oldset:[],
 	    overlap_count:function(){
 	      return (this.curvalues.length>0)?this.curvalues[this.curvalues.length-1]:0;
+	    },
+	
+	    isDegenerate:function(){
+	      return this.items.length ==0;
 	    },
 	
 	    saveOld:function(){
@@ -1798,6 +1792,7 @@
 	    @returns {Array} : an array with elements such as return values of computeLabelCandidate function
 	    */
 	    getInitialRandomState:function(){
+	      this.compConflictMatrix();
 	      this.curset=[];
 	      for(var i=0;i<this.items.length;i++){
 	        var candidate = candidateGenerator.computeLabelCandidate(i,this.items);
@@ -1879,7 +1874,7 @@
 	  return result;
 	}
 	
-	module.exports = annealingManager;
+	module.exports = autoLabelManager;
 
 
 /***/ }
