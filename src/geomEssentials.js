@@ -218,14 +218,50 @@ var geomEssentials = {
     return lower_boundary;
   },
 
-  clipPoly:function(poly1,poly2){
-    //TODO [clipPoly] may be we should edit actual algo -> to stop when first commpon point is found??
-    //for doing this, implement Shamos-Hoey Algorithm
-    //if(!poly1 || poly2)return [];
-    var intersection = greinerHormann.intersection(poly1, poly2);
-    if(!intersection)return [];
-    if(intersection.length>0)return intersection[0];
-  },
+  /**
+function from https://rosettacode.org/wiki/Sutherland-Hodgman_polygon_clipping#JavaScript
+@param {Array} subjectPolygon: first poly
+@param {Array} clipPolygon: second poly
+@returns {Array} : result poly
+@memberof geomEssentials#
+*/
+clipPoly:function(subjectPolygon, clipPolygon) {
+  var cp1, cp2, s, e;
+  var inside = function (p) {
+      return (cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0]);
+  };
+  var intersection = function () {
+      var dc = [ cp1[0] - cp2[0], cp1[1] - cp2[1] ],
+          dp = [ s[0] - e[0], s[1] - e[1] ],
+          n1 = cp1[0] * cp2[1] - cp1[1] * cp2[0],
+          n2 = s[0] * e[1] - s[1] * e[0],
+          n3 = 1.0 / (dc[0] * dp[1] - dc[1] * dp[0]);
+      return [(n1*dp[0] - n2*dc[0]) * n3, (n1*dp[1] - n2*dc[1]) * n3];
+  };
+  var outputList = subjectPolygon;
+  cp1 = clipPolygon[clipPolygon.length-1];
+  for (var j in clipPolygon) {
+      var cp2 = clipPolygon[j];
+      var inputList = outputList;
+      outputList = [];
+      s = inputList[inputList.length - 1]; //last on the input list
+      for (var i in inputList) {
+          var e = inputList[i];
+          if (inside(e)) {
+              if (!inside(s)) {
+                  outputList.push(intersection());
+              }
+              outputList.push(e);
+          }
+          else if (inside(s)) {
+              outputList.push(intersection());
+          }
+          s = e;
+      }
+      cp1 = cp2;
+  }
+  return outputList
+},
 
   /**
   returns a combined poly from two

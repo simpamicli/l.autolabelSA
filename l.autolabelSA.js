@@ -120,7 +120,7 @@
 	var DOMEssentials = __webpack_require__(2);
 	var geomEssentials = __webpack_require__(3);
 	var simulatedAnnealing = __webpack_require__(9);
-	var autoLabelManager =__webpack_require__(14);
+	var autoLabelManager =__webpack_require__(10);
 	var dataReader = __webpack_require__(13);
 	
 	L.AutoLabeler = L.Evented.extend(
@@ -595,14 +595,50 @@
 	    return lower_boundary;
 	  },
 	
-	  clipPoly:function(poly1,poly2){
-	    //TODO [clipPoly] may be we should edit actual algo -> to stop when first commpon point is found??
-	    //for doing this, implement Shamos-Hoey Algorithm
-	    //if(!poly1 || poly2)return [];
-	    var intersection = greinerHormann.intersection(poly1, poly2);
-	    if(!intersection)return [];
-	    if(intersection.length>0)return intersection[0];
-	  },
+	  /**
+	function from https://rosettacode.org/wiki/Sutherland-Hodgman_polygon_clipping#JavaScript
+	@param {Array} subjectPolygon: first poly
+	@param {Array} clipPolygon: second poly
+	@returns {Array} : result poly
+	@memberof geomEssentials#
+	*/
+	clipPoly:function(subjectPolygon, clipPolygon) {
+	  var cp1, cp2, s, e;
+	  var inside = function (p) {
+	      return (cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0]);
+	  };
+	  var intersection = function () {
+	      var dc = [ cp1[0] - cp2[0], cp1[1] - cp2[1] ],
+	          dp = [ s[0] - e[0], s[1] - e[1] ],
+	          n1 = cp1[0] * cp2[1] - cp1[1] * cp2[0],
+	          n2 = s[0] * e[1] - s[1] * e[0],
+	          n3 = 1.0 / (dc[0] * dp[1] - dc[1] * dp[0]);
+	      return [(n1*dp[0] - n2*dc[0]) * n3, (n1*dp[1] - n2*dc[1]) * n3];
+	  };
+	  var outputList = subjectPolygon;
+	  cp1 = clipPolygon[clipPolygon.length-1];
+	  for (var j in clipPolygon) {
+	      var cp2 = clipPolygon[j];
+	      var inputList = outputList;
+	      outputList = [];
+	      s = inputList[inputList.length - 1]; //last on the input list
+	      for (var i in inputList) {
+	          var e = inputList[i];
+	          if (inside(e)) {
+	              if (!inside(s)) {
+	                  outputList.push(intersection());
+	              }
+	              outputList.push(e);
+	          }
+	          else if (inside(s)) {
+	              outputList.push(intersection());
+	          }
+	          s = e;
+	      }
+	      cp1 = cp2;
+	  }
+	  return outputList
+	},
 	
 	  /**
 	  returns a combined poly from two
@@ -1292,7 +1328,7 @@
 	'use strict';
 	
 	var geomEssentials = __webpack_require__(3);
-	var autoLabelManager =__webpack_require__(14);
+	var autoLabelManager =__webpack_require__(10);
 	var candidateGenerator =__webpack_require__(11);
 	
 	var simulatedAnnealing =function(autoLabelMan,options) {
@@ -1446,7 +1482,133 @@
 
 
 /***/ },
-/* 10 */,
+/* 10 */
+/***/ function(module, exports, __webpack_require__) {
+
+	var candidateGenerator = __webpack_require__(11);
+	var geomEssentials = __webpack_require__(3);
+	
+	var autoLabelManager = function(all_items){
+	  var result = {
+	    items:all_items,
+	    curset:[],
+	    curvalues:[],
+	    conflictMatrix:[],
+	    _oldvalues:[],
+	    _oldset:[],
+	    overlap_count:function(){
+	      return (this.curvalues.length>0)?this.curvalues[this.curvalues.length-1]:0;
+	    },
+	
+	    isDegenerate:function(){
+	      return this.items.length ==0;
+	    },
+	
+	    saveOld:function(){
+	      this._oldvalues = this.curvalues.slice(0);
+	      this._oldset = this.curset.slice(0);
+	    },
+	
+	    restoreOld:function(){
+	      this.curvalues = this._oldvalues;
+	      this.curset = this._oldset;
+	    },
+	
+	    old_overlap_count:function(){
+	      return (this._oldvalues.length>0)?this._oldvalues[this._oldvalues.length-1]:0;
+	    },
+	    /**
+	    computes the random set of positions for text placement with angles and text values
+	    @param {Array} all_items: an array with {t,segs} elements, according to t -text of the polyline, segs - its accepted segments to label on. Result array is generated from items of aMan array
+	    @returns {Array} : an array with elements such as return values of computeLabelCandidate function
+	    */
+	    getInitialRandomState:function(){
+	      this.compConflictMatrix();
+	      this.curset=[];
+	      for(var i=0;i<this.items.length;i++){
+	        var candidate = candidateGenerator.computeLabelCandidate(i,this.items);
+	        this.curset.push(candidate);
+	      }
+	    },
+	
+	    /**
+	    Divides all_items into clusters (or builds a graph), such as:
+	    cluster consists of items with potential label intersections, which are computed by intersecting each item's boundaries (itemPoly)
+	    Also: if free-of-intersections part of item's poly is capable for containing item's label, then such item is moved to separate cluster
+	    with only aMan item -> no further computation for aMan item at all
+	    After finishing clustering -> we applying simulatedAnnealing to each cluster independently, and thus, potentially, we
+	    decrease degree of a problem.
+	    @param {Array} all_items:
+	    @returns {Array}: two-dim array if clusters first level, indices of items secodn level.
+	    */
+	    compConflictMatrix:function(){
+	      this.conflictMatrix=[];
+	      //no need to intersect i,j items and j,i items
+	      for(var i in this.items){
+	        for(var j in this.items)if(i>j){
+	          var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());
+	          if(curClip.length>0){
+	            //on each intersection compute free space for this item
+	            if(!this.items[i].free_space)this.items[i].free_space = curClip;
+	            else this.items[i].free_space = geomEssentials.subtractPoly(this.items[i].free_space,curClip);
+	          }
+	          this.conflictMatrix.push(curClip.length); //if zero -> no need to check overlappings for i,j with index i+j.
+	        }
+	      }
+	    },
+	
+	    markOveralppedLabels:function(){
+	      var counter=0;
+	      for(var i in this.curset){
+	        for(var j in this.curset){
+	          if(i>j){
+	            if(this.curvalues[counter]>0){
+	              this.curset[i].overlaps = true;
+	              this.curset[j].overlaps = true;
+	            }
+	            counter++;
+	          }
+	        }
+	      }
+	    },
+	
+	    getOverlappingLabelsIndexes:function(){
+	      var counter=0, result=[];
+	      for(var i in this.curset)
+	        for(var j in this.curset)
+	          if(i>j){
+	            if(this.curvalues[counter]>0){
+	           result.push(i); result.push(j);
+	         }
+	         counter++;
+	       }
+	      return result;
+	    },
+	
+	    /**
+	    swaps position for a random label with another from this label's positions pool
+	    @param {Number} index : index of label in all_items to select new random position from availavle choices.
+	    @param {Array} curset: currently selected label postions
+	    @param {Array} all_items: all available postions
+	    @memberof MapAutoLabelSupport#
+	    */
+	    swapCandidateInLabelSetToNew:function(idx){
+	      var label_index = this.curset[idx].all_items_index();
+	      var new_candidate = candidateGenerator.computeLabelCandidate(label_index,this.items);
+	      this.curset[idx]=new_candidate;
+	    },
+	
+	    applyNewPositionsForLabelsInArray:function(idx_array){
+	      for(var i in idx_array)this.swapCandidateInLabelSetToNew(idx_array[i]);
+	    }
+	  };
+	  return result;
+	}
+	
+	module.exports = autoLabelManager;
+
+
+/***/ },
 /* 11 */
 /***/ function(module, exports, __webpack_require__) {
 
@@ -1748,133 +1910,6 @@
 	}
 	
 	module.exports = dataReader;
-
-
-/***/ },
-/* 14 */
-/***/ function(module, exports, __webpack_require__) {
-
-	var candidateGenerator = __webpack_require__(11);
-	var geomEssentials = __webpack_require__(3);
-	
-	var autoLabelManager = function(all_items){
-	  var result = {
-	    items:all_items,
-	    curset:[],
-	    curvalues:[],
-	    conflictMatrix:[],
-	    _oldvalues:[],
-	    _oldset:[],
-	    overlap_count:function(){
-	      return (this.curvalues.length>0)?this.curvalues[this.curvalues.length-1]:0;
-	    },
-	
-	    isDegenerate:function(){
-	      return this.items.length ==0;
-	    },
-	
-	    saveOld:function(){
-	      this._oldvalues = this.curvalues.slice(0);
-	      this._oldset = this.curset.slice(0);
-	    },
-	
-	    restoreOld:function(){
-	      this.curvalues = this._oldvalues;
-	      this.curset = this._oldset;
-	    },
-	
-	    old_overlap_count:function(){
-	      return (this._oldvalues.length>0)?this._oldvalues[this._oldvalues.length-1]:0;
-	    },
-	    /**
-	    computes the random set of positions for text placement with angles and text values
-	    @param {Array} all_items: an array with {t,segs} elements, according to t -text of the polyline, segs - its accepted segments to label on. Result array is generated from items of aMan array
-	    @returns {Array} : an array with elements such as return values of computeLabelCandidate function
-	    */
-	    getInitialRandomState:function(){
-	      this.compConflictMatrix();
-	      this.curset=[];
-	      for(var i=0;i<this.items.length;i++){
-	        var candidate = candidateGenerator.computeLabelCandidate(i,this.items);
-	        this.curset.push(candidate);
-	      }
-	    },
-	
-	    /**
-	    Divides all_items into clusters (or builds a graph), such as:
-	    cluster consists of items with potential label intersections, which are computed by intersecting each item's boundaries (itemPoly)
-	    Also: if free-of-intersections part of item's poly is capable for containing item's label, then such item is moved to separate cluster
-	    with only aMan item -> no further computation for aMan item at all
-	    After finishing clustering -> we applying simulatedAnnealing to each cluster independently, and thus, potentially, we
-	    decrease degree of a problem.
-	    @param {Array} all_items:
-	    @returns {Array}: two-dim array if clusters first level, indices of items secodn level.
-	    */
-	    compConflictMatrix:function(){
-	      this.conflictMatrix=[];
-	      //no need to intersect i,j items and j,i items
-	      for(var i in this.items){
-	        for(var j in this.items)if(i>j){
-	          var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());
-	          if(curClip.length>0){
-	            //on each intersection compute free space for this item
-	            if(!this.items[i].free_space)this.items[i].free_space = curClip;
-	            else this.items[i].free_space = geomEssentials.subtractPoly(this.items[i].free_space,curClip);
-	          }
-	          this.conflictMatrix.push(curClip.length); //if zero -> no need to check overlappings for i,j with index i+j.
-	        }
-	      }
-	    },
-	
-	    markOveralppedLabels:function(){
-	      var counter=0;
-	      for(var i in this.curset){
-	        for(var j in this.curset){
-	          if(i>j){
-	            if(this.curvalues[counter]>0){
-	              this.curset[i].overlaps = true;
-	              this.curset[j].overlaps = true;
-	            }
-	            counter++;
-	          }
-	        }
-	      }
-	    },
-	
-	    getOverlappingLabelsIndexes:function(){
-	      var counter=0, result=[];
-	      for(var i in this.curset)
-	        for(var j in this.curset)
-	          if(i>j){
-	            if(this.curvalues[counter]>0){
-	           result.push(i); result.push(j);
-	         }
-	         counter++;
-	       }
-	      return result;
-	    },
-	
-	    /**
-	    swaps position for a random label with another from this label's positions pool
-	    @param {Number} index : index of label in all_items to select new random position from availavle choices.
-	    @param {Array} curset: currently selected label postions
-	    @param {Array} all_items: all available postions
-	    @memberof MapAutoLabelSupport#
-	    */
-	    swapCandidateInLabelSetToNew:function(idx){
-	      var label_index = this.curset[idx].all_items_index();
-	      var new_candidate = candidateGenerator.computeLabelCandidate(label_index,this.items);
-	      this.curset[idx]=new_candidate;
-	    },
-	
-	    applyNewPositionsForLabelsInArray:function(idx_array){
-	      for(var i in idx_array)this.swapCandidateInLabelSetToNew(idx_array[i]);
-	    }
-	  };
-	  return result;
-	}
-	
-	module.exports = autoLabelManager;
 
 
 /***/ }
