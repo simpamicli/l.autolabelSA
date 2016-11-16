@@ -60,11 +60,11 @@ var autoLabelManager = function(all_items){
       for(var i in this.items){
         for(var j in this.items)if(i>j){
           var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());
-          if(curClip.length>0){
+          /*if(curClip.length>0){
             //on each intersection compute free space for this item
             if(!this.items[i].free_space)this.items[i].free_space = curClip;
             else this.items[i].free_space = geomEssentials.subtractPoly(this.items[i].free_space,curClip);
-          }
+          }*/
           this.conflictMatrix.push(curClip.length); //if zero -> no need to check overlappings for i,j with index i+j.
         }
       }

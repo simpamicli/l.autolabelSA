@@ -14,7 +14,7 @@ var map = new L.Map('map',{renderer:L.svg(),
                              zoomToStartLabel:5,
                              showBBoxes:true,
                              annealingOptions:{
-                               maxtotaliterations:1000
+                               
                              }
                             }
                           }).addLayer(osm).setView(new L.LatLng(60.051, 30.331), 13);

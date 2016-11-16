@@ -127,9 +127,10 @@ L.AutoLabeler = L.Evented.extend(
         this._polyLayer = L.featureGroup().addTo(this._map)
       }
 
-      var latlngs=[]; for(var i in poly)latlngs.push(this._map.layerPointToLatLng(poly[i]));
+      var latlngs=[]; for(var i in poly)latlngs.push(this._map.layerPointToLatLng(
+        L.point(poly[i][0],poly[i][1])));
       map_polygon = L.polygon([latlngs],{color:'yellow',fillOpacity:'0.5'});
-      map_polygon.data_to_show = data_to_show;
+      map_polygon.data_to_show = JSON.stringify(poly);
       this._polyLayer.addLayer(map_polygon);
     },
 
@@ -180,7 +181,10 @@ L.AutoLabeler = L.Evented.extend(
       }
       if(this.options.showBBoxes){
         this._polyLayer.eachLayer(function(layer){
-            layer.bindPopup(layer.data_to_show);
+            //layer.bindPopup(layer.data_to_show);
+            layer.on('click',function(e){
+              console.log(layer.data_to_show);
+            });
           });
       }
     }

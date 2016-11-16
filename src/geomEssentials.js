@@ -215,7 +215,17 @@ var geomEssentials = {
     var lower_boundary = polyline.slice(0);
     var upper_boundary=this.translateByNormals(polyline,height);
     Array.prototype.push.apply(lower_boundary, upper_boundary.reverse());
+    this.polyLPointToArray(lower_boundary);
     return lower_boundary;
+  },
+
+  /*
+  Converts poly of L.Point to poly of [x,y]. Note - original variable is to be modified
+  @param {Array} polyLPoint: poly to modify
+  **/
+  polyLPointToArray:function(polyLPoint){
+    for(var i=0;i<polyLPoint.length;i++)
+      polyLPoint[i] = [polyLPoint[i].x,polyLPoint[i].y];
   },
 
   /**
@@ -225,7 +235,7 @@ function from https://rosettacode.org/wiki/Sutherland-Hodgman_polygon_clipping#J
 @returns {Array} : result poly
 @memberof geomEssentials#
 */
-clipPoly:function(subjectPolygon, clipPolygon) {
+clipPoly2:function(subjectPolygon, clipPolygon) {
   var cp1, cp2, s, e;
   var inside = function (p) {
       return (cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0]);
@@ -262,6 +272,13 @@ clipPoly:function(subjectPolygon, clipPolygon) {
   }
   return outputList
 },
+
+clipPoly:function(poly1,poly2){
+    var intersection = greinerHormann.intersection(poly1, poly2);
+    if(!intersection)return [];
+    if(intersection.length>0)return intersection[0];
+  },
+
 
   /**
   returns a combined poly from two

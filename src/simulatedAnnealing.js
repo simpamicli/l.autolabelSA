@@ -116,10 +116,10 @@ var simulatedAnnealing =function(autoLabelMan,options) {
            improvements_count++;
            no_improve_count=0;
          }
-        if(no_improve_count>=this.options.max_noimprove_count*curset.length){ //it is already optimal
+        if(no_improve_count>=this.options.max_noimprove_count*this.aManager.curset.length){ //it is already optimal
             return this._doReturn(iterations);
         }
-        if(improvements_count>=this.options.max_improvments_count*curset.length){
+        if(improvements_count>=this.options.max_improvments_count*this.aManager.curset.length){
           break; //of for
         }
       }

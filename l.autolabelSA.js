@@ -50,6 +50,16 @@
 	  var autoLabeler = __webpack_require__(1);
 	
 	  var __onRemove = L.LayerGroup.prototype.onRemove;
+	  //
+	  // var geomEssentials = require("./geomEssentials.js");
+	  //
+	  // var poly1 =[[195.28215910639838,47.1410795531992],[231,65],[261,9],[273.7383792229255,15.079680992759897],[297.859236050962,-35.4592571231262],[236.8793791587075,-64.56327973079307],[207.3470977755445,-9.43635448222185],[220.326120454396,-2.946843142796098]];
+	  //
+	  // var poly2 =[[407.0824120592751,-65.5164843828588],[302,-82],[291.5910849433034,-86.16356602267865],[270.7932070674736,-34.16887133310413],[287.07399919130665,-27.65655448357095],[398.40421700394324,-10.192990905118151]];
+	  //
+	  // var poly3 = geomEssentials.clipPoly(poly1,poly2);
+	  //
+	  // console.log(poly3);
 	  //to include in LabelGroup
 	  var AutoLabelingSupport = {
 	      /**
@@ -246,9 +256,10 @@
 	        this._polyLayer = L.featureGroup().addTo(this._map)
 	      }
 	
-	      var latlngs=[]; for(var i in poly)latlngs.push(this._map.layerPointToLatLng(poly[i]));
+	      var latlngs=[]; for(var i in poly)latlngs.push(this._map.layerPointToLatLng(
+	        L.point(poly[i][0],poly[i][1])));
 	      map_polygon = L.polygon([latlngs],{color:'yellow',fillOpacity:'0.5'});
-	      map_polygon.data_to_show = data_to_show;
+	      map_polygon.data_to_show = JSON.stringify(poly);
 	      this._polyLayer.addLayer(map_polygon);
 	    },
 	
@@ -299,7 +310,10 @@
 	      }
 	      if(this.options.showBBoxes){
 	        this._polyLayer.eachLayer(function(layer){
-	            layer.bindPopup(layer.data_to_show);
+	            //layer.bindPopup(layer.data_to_show);
+	            layer.on('click',function(e){
+	              console.log(layer.data_to_show);
+	            });
 	          });
 	      }
 	    }
@@ -592,7 +606,17 @@
 	    var lower_boundary = polyline.slice(0);
 	    var upper_boundary=this.translateByNormals(polyline,height);
 	    Array.prototype.push.apply(lower_boundary, upper_boundary.reverse());
+	    this.polyLPointToArray(lower_boundary);
 	    return lower_boundary;
+	  },
+	
+	  /*
+	  Converts poly of L.Point to poly of [x,y]. Note - original variable is to be modified
+	  @param {Array} polyLPoint: poly to modify
+	  **/
+	  polyLPointToArray:function(polyLPoint){
+	    for(var i=0;i<polyLPoint.length;i++)
+	      polyLPoint[i] = [polyLPoint[i].x,polyLPoint[i].y];
 	  },
 	
 	  /**
@@ -602,7 +626,7 @@
 	@returns {Array} : result poly
 	@memberof geomEssentials#
 	*/
-	clipPoly:function(subjectPolygon, clipPolygon) {
+	clipPoly2:function(subjectPolygon, clipPolygon) {
 	  var cp1, cp2, s, e;
 	  var inside = function (p) {
 	      return (cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0]);
@@ -639,6 +663,13 @@
 	  }
 	  return outputList
 	},
+	
+	clipPoly:function(poly1,poly2){
+	    var intersection = greinerHormann.intersection(poly1, poly2);
+	    if(!intersection)return [];
+	    if(intersection.length>0)return intersection[0];
+	  },
+	
 	
 	  /**
 	  returns a combined poly from two
@@ -1443,10 +1474,10 @@
 	           improvements_count++;
 	           no_improve_count=0;
 	         }
-	        if(no_improve_count>=this.options.max_noimprove_count*curset.length){ //it is already optimal
+	        if(no_improve_count>=this.options.max_noimprove_count*this.aManager.curset.length){ //it is already optimal
 	            return this._doReturn(iterations);
 	        }
-	        if(improvements_count>=this.options.max_improvments_count*curset.length){
+	        if(improvements_count>=this.options.max_improvments_count*this.aManager.curset.length){
 	          break; //of for
 	        }
 	      }
@@ -1547,11 +1578,11 @@
 	      for(var i in this.items){
 	        for(var j in this.items)if(i>j){
 	          var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());
-	          if(curClip.length>0){
+	          /*if(curClip.length>0){
 	            //on each intersection compute free space for this item
 	            if(!this.items[i].free_space)this.items[i].free_space = curClip;
 	            else this.items[i].free_space = geomEssentials.subtractPoly(this.items[i].free_space,curClip);
-	          }
+	          }*/
 	          this.conflictMatrix.push(curClip.length); //if zero -> no need to check overlappings for i,j with index i+j.
 	        }
 	      }
