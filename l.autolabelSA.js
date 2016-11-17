@@ -1372,13 +1372,11 @@
 	  */
 	  evaluateCurSet:function(){
 	    this.aManager.curvalues=[];
-	    for(var i in this.aManager.curset)
-	      for(var j in this.aManager.curset)
-	        if(i>j){ //to exclude variants like compare (1,3) and then (3,1)
-	        //var curlabel_value=(this.aManager.conflictMatrix[i+j]>0)?geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false):0;
-	          var curlabel_value = geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false);
-	          if(curlabel_value>0)this.aManager.curvalues.push([i,j,curlabel_value]);
-	        }
+	    for(var i in this.aManager.conflictMatrix){
+	      var ij = this.aManager.conflictMatrix[i];
+	      var curlabel_value = geomEssentials.checkOverLappingArea(this.aManager.curset[ij[0]].poly(),this.aManager.curset[ij[1]].poly(),false);
+	      if(curlabel_value>0)this.aManager.curvalues.push([ij[0],ij[1],curlabel_value]);
+	    }
 	    this.assignCostFunctionValuesToLastEl();
 	  },
 	
@@ -1455,7 +1453,7 @@
 	        var overlapped_indexes = this.aManager.getOverlappingLabelsIndexes();
 	        this.aManager.applyNewPositionsForLabelsInArray(overlapped_indexes);
 	        // this.evaluateAfterSeveralChanged(overlapped_indexes);
-	        this.evaluateCurSet(); 
+	        this.evaluateCurSet();
 	        iterations++;
 	        if(this.aManager.overlap_count() === 0){ return this._doReturn(iterations); }
 	        if(iterations>this.options.maxtotaliterations){ return this._doReturn(iterations); }
@@ -1561,6 +1559,10 @@
 	      }
 	    },
 	
+	    _testPossibleFitting:function(ind1,ind2){
+	      //TODO
+	    },
+	
 	    /**
 	    Divides all_items into clusters (or builds a graph), such as:
 	    cluster consists of items with potential label intersections, which are computed by intersecting each item's boundaries (itemPoly)
@@ -1574,15 +1576,13 @@
 	    compConflictMatrix:function(){
 	      this.conflictMatrix=[];
 	      //no need to intersect i,j items and j,i items
+	      //TODO mark items which overlaps anyway
 	      for(var i in this.items){
 	        for(var j in this.items)if(i>j){
 	          var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());
-	          /*if(curClip.length>0){
-	            //on each intersection compute free space for this item
-	            if(!this.items[i].free_space)this.items[i].free_space = curClip;
-	            else this.items[i].free_space = geomEssentials.subtractPoly(this.items[i].free_space,curClip);
-	          }*/
-	          this.conflictMatrix.push(curClip.length>0?1:0); //if zero -> no need to check overlappings for i,j with index i+j.
+	          _testPossibleFitting
+	          if(curClip.length>0)this.conflictMatrix.push([i,j]);
+	
 	        }
 	      }
 	    },
@@ -1814,6 +1814,7 @@
 	
 	      /**
 	      Used for calculationg overlaps for text along path (textPath SVG).
+	      TODO avoid or smooth sharp angles to keep text fully visible 
 	      @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
 	      @param {LabelItem} item:
 	      @returns {Array} : a poly bounding curved text
@@ -1828,6 +1829,7 @@
 	
 	      /**
 	      common function switch for computing poly for different layer_types
+	
 	      */
 	      _computePoly:function(){
 	        switch(item.layer_type()){

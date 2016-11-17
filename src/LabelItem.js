@@ -124,6 +124,7 @@ module.exports = {
 
       /**
       Used for calculationg overlaps for text along path (textPath SVG).
+      TODO avoid or smooth sharp angles to keep text fully visible 
       @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
       @param {LabelItem} item:
       @returns {Array} : a poly bounding curved text
@@ -138,6 +139,7 @@ module.exports = {
 
       /**
       common function switch for computing poly for different layer_types
+
       */
       _computePoly:function(){
         switch(item.layer_type()){

@@ -44,6 +44,10 @@ var autoLabelManager = function(all_items){
       }
     },
 
+    _testPossibleFitting:function(ind1,ind2){
+      //TODO
+    },
+
     /**
     Divides all_items into clusters (or builds a graph), such as:
     cluster consists of items with potential label intersections, which are computed by intersecting each item's boundaries (itemPoly)
@@ -57,15 +61,13 @@ var autoLabelManager = function(all_items){
     compConflictMatrix:function(){
       this.conflictMatrix=[];
       //no need to intersect i,j items and j,i items
+      //TODO mark items which overlaps anyway
       for(var i in this.items){
         for(var j in this.items)if(i>j){
           var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());
-          /*if(curClip.length>0){
-            //on each intersection compute free space for this item
-            if(!this.items[i].free_space)this.items[i].free_space = curClip;
-            else this.items[i].free_space = geomEssentials.subtractPoly(this.items[i].free_space,curClip);
-          }*/
-          this.conflictMatrix.push(curClip.length>0?1:0); //if zero -> no need to check overlappings for i,j with index i+j.
+          _testPossibleFitting
+          if(curClip.length>0)this.conflictMatrix.push([i,j]);
+
         }
       }
     },
