@@ -19,8 +19,8 @@ var simulatedAnnealing =function(autoLabelMan,options) {
       for(var j in this.aManager.curset)
         if(i>j){ //to exclude variants like compare (1,3) and then (3,1)
         //var curlabel_value=(this.aManager.conflictMatrix[i+j]>0)?geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false):0;
-        var curlabel_value = geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false);
-        this.aManager.curvalues.push(curlabel_value);
+          var curlabel_value = geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false);
+          if(curlabel_value>0)this.aManager.curvalues.push([i,j,curlabel_value]);
         }
     this.assignCostFunctionValuesToLastEl();
   },
@@ -31,7 +31,7 @@ var simulatedAnnealing =function(autoLabelMan,options) {
   */
   assignCostFunctionValuesToLastEl:function(){
     var res=0;
-    for(var i in this.aManager.curvalues)res+=this.aManager.curvalues[i];
+    for(var i in this.aManager.curvalues)res+=this.aManager.curvalues[i][2];
     this.aManager.curvalues.push(res);
   },
 
@@ -40,17 +40,16 @@ var simulatedAnnealing =function(autoLabelMan,options) {
   */
   evaluateAfterSeveralChanged:function(changedLabels) {
     var counter=0; //index to iterate through curvalue array
-    while(changedLabels.length>0){
-      var changedLabelIndex=changedLabels.pop();
-      for(var i=0;i<this.aManager.curset.length;i++)
+      for(var i=0;i<this.aManager.curset.length;i++){
+        var changedLabelIndex = (changedLabels[i])?i:-1;
         for(var j=0;j<this.aManager.curset.length;j++)if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
           if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
-            var area=this.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
+            var area=geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
             this.aManager.curvalues[counter]=area;
             }
             counter++;
           }
-    }
+      }
     this.aManager.curvalues.pop(); //remove prev sum
     this.assignCostFunctionValuesToLastEl();
   },
@@ -68,7 +67,7 @@ var simulatedAnnealing =function(autoLabelMan,options) {
     this.options.max_improvments_count = this.options.max_improvments_count || 10;
     this.options.max_noimprove_count = this.options.max_noimprove_count || 20;
     this.options.maxsteps = this.options.maxsteps || 100;
-    this.options.maxtotaliterations = this.options.maxtotaliterations || 100000;
+    this.options.maxtotaliterations = this.options.maxtotaliterations || 1000;
     this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
     this.options.debug=this.options.debug || true;
     this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
@@ -98,7 +97,8 @@ var simulatedAnnealing =function(autoLabelMan,options) {
         this.aManager.saveOld();
         var overlapped_indexes = this.aManager.getOverlappingLabelsIndexes();
         this.aManager.applyNewPositionsForLabelsInArray(overlapped_indexes);
-        this.evaluateAfterSeveralChanged(overlapped_indexes);
+        // this.evaluateAfterSeveralChanged(overlapped_indexes);
+        this.evaluateCurSet(); 
         iterations++;
         if(this.aManager.overlap_count() === 0){ return this._doReturn(iterations); }
         if(iterations>this.options.maxtotaliterations){ return this._doReturn(iterations); }

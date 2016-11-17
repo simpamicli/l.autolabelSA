@@ -65,36 +65,25 @@ var autoLabelManager = function(all_items){
             if(!this.items[i].free_space)this.items[i].free_space = curClip;
             else this.items[i].free_space = geomEssentials.subtractPoly(this.items[i].free_space,curClip);
           }*/
-          this.conflictMatrix.push(curClip.length); //if zero -> no need to check overlappings for i,j with index i+j.
+          this.conflictMatrix.push(curClip.length>0?1:0); //if zero -> no need to check overlappings for i,j with index i+j.
         }
       }
     },
 
     markOveralppedLabels:function(){
-      var counter=0;
-      for(var i in this.curset){
-        for(var j in this.curset){
-          if(i>j){
-            if(this.curvalues[counter]>0){
-              this.curset[i].overlaps = true;
-              this.curset[j].overlaps = true;
+        for(var i=0;i<this.curvalues.length-1;i++){
+              this.curset[this.curvalues[i][0]].overlaps = true;
+              this.curset[this.curvalues[i][1]].overlaps = true;
             }
-            counter++;
-          }
-        }
-      }
     },
 
     getOverlappingLabelsIndexes:function(){
-      var counter=0, result=[];
-      for(var i in this.curset)
-        for(var j in this.curset)
-          if(i>j){
-            if(this.curvalues[counter]>0){
-           result.push(i); result.push(j);
-         }
-         counter++;
-       }
+      var result=[];
+      for(var k in this.curset)result.push(false);
+      for(var i=0;i<this.curvalues.length-1;i++){
+        var row = this.curvalues[i][0], col = this.curvalues[i][1];
+        result[row]=true; result[col]=true;
+      }
       return result;
     },
 
@@ -112,7 +101,9 @@ var autoLabelManager = function(all_items){
     },
 
     applyNewPositionsForLabelsInArray:function(idx_array){
-      for(var i in idx_array)this.swapCandidateInLabelSetToNew(idx_array[i]);
+      for(var i in idx_array)
+        if(idx_array[i])
+          this.swapCandidateInLabelSetToNew(i);
     }
   };
   return result;

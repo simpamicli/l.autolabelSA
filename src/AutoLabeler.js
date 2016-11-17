@@ -126,10 +126,9 @@ L.AutoLabeler = L.Evented.extend(
       if(!this._polyLayer){
         this._polyLayer = L.featureGroup().addTo(this._map)
       }
-
       var latlngs=[]; for(var i in poly)latlngs.push(this._map.layerPointToLatLng(
         L.point(poly[i][0],poly[i][1])));
-      map_polygon = L.polygon([latlngs],{color:'yellow',fillOpacity:'0.5'});
+      map_polygon = L.polygon([latlngs],{color:(overlaps)?'red':'yellow',fillOpacity:'0.5'});
       map_polygon.data_to_show = JSON.stringify(poly);
       this._polyLayer.addLayer(map_polygon);
     },

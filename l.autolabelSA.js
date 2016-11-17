@@ -255,10 +255,9 @@
 	      if(!this._polyLayer){
 	        this._polyLayer = L.featureGroup().addTo(this._map)
 	      }
-	
 	      var latlngs=[]; for(var i in poly)latlngs.push(this._map.layerPointToLatLng(
 	        L.point(poly[i][0],poly[i][1])));
-	      map_polygon = L.polygon([latlngs],{color:'yellow',fillOpacity:'0.5'});
+	      map_polygon = L.polygon([latlngs],{color:(overlaps)?'red':'yellow',fillOpacity:'0.5'});
 	      map_polygon.data_to_show = JSON.stringify(poly);
 	      this._polyLayer.addLayer(map_polygon);
 	    },
@@ -1377,8 +1376,8 @@
 	      for(var j in this.aManager.curset)
 	        if(i>j){ //to exclude variants like compare (1,3) and then (3,1)
 	        //var curlabel_value=(this.aManager.conflictMatrix[i+j]>0)?geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false):0;
-	        var curlabel_value = geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false);
-	        this.aManager.curvalues.push(curlabel_value);
+	          var curlabel_value = geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false);
+	          if(curlabel_value>0)this.aManager.curvalues.push([i,j,curlabel_value]);
 	        }
 	    this.assignCostFunctionValuesToLastEl();
 	  },
@@ -1389,7 +1388,7 @@
 	  */
 	  assignCostFunctionValuesToLastEl:function(){
 	    var res=0;
-	    for(var i in this.aManager.curvalues)res+=this.aManager.curvalues[i];
+	    for(var i in this.aManager.curvalues)res+=this.aManager.curvalues[i][2];
 	    this.aManager.curvalues.push(res);
 	  },
 	
@@ -1398,17 +1397,16 @@
 	  */
 	  evaluateAfterSeveralChanged:function(changedLabels) {
 	    var counter=0; //index to iterate through curvalue array
-	    while(changedLabels.length>0){
-	      var changedLabelIndex=changedLabels.pop();
-	      for(var i=0;i<this.aManager.curset.length;i++)
+	      for(var i=0;i<this.aManager.curset.length;i++){
+	        var changedLabelIndex = (changedLabels[i])?i:-1;
 	        for(var j=0;j<this.aManager.curset.length;j++)if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
 	          if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
-	            var area=this.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
+	            var area=geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
 	            this.aManager.curvalues[counter]=area;
 	            }
 	            counter++;
 	          }
-	    }
+	      }
 	    this.aManager.curvalues.pop(); //remove prev sum
 	    this.assignCostFunctionValuesToLastEl();
 	  },
@@ -1426,7 +1424,7 @@
 	    this.options.max_improvments_count = this.options.max_improvments_count || 10;
 	    this.options.max_noimprove_count = this.options.max_noimprove_count || 20;
 	    this.options.maxsteps = this.options.maxsteps || 100;
-	    this.options.maxtotaliterations = this.options.maxtotaliterations || 100000;
+	    this.options.maxtotaliterations = this.options.maxtotaliterations || 1000;
 	    this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
 	    this.options.debug=this.options.debug || true;
 	    this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
@@ -1456,7 +1454,8 @@
 	        this.aManager.saveOld();
 	        var overlapped_indexes = this.aManager.getOverlappingLabelsIndexes();
 	        this.aManager.applyNewPositionsForLabelsInArray(overlapped_indexes);
-	        this.evaluateAfterSeveralChanged(overlapped_indexes);
+	        // this.evaluateAfterSeveralChanged(overlapped_indexes);
+	        this.evaluateCurSet(); 
 	        iterations++;
 	        if(this.aManager.overlap_count() === 0){ return this._doReturn(iterations); }
 	        if(iterations>this.options.maxtotaliterations){ return this._doReturn(iterations); }
@@ -1583,36 +1582,25 @@
 	            if(!this.items[i].free_space)this.items[i].free_space = curClip;
 	            else this.items[i].free_space = geomEssentials.subtractPoly(this.items[i].free_space,curClip);
 	          }*/
-	          this.conflictMatrix.push(curClip.length); //if zero -> no need to check overlappings for i,j with index i+j.
+	          this.conflictMatrix.push(curClip.length>0?1:0); //if zero -> no need to check overlappings for i,j with index i+j.
 	        }
 	      }
 	    },
 	
 	    markOveralppedLabels:function(){
-	      var counter=0;
-	      for(var i in this.curset){
-	        for(var j in this.curset){
-	          if(i>j){
-	            if(this.curvalues[counter]>0){
-	              this.curset[i].overlaps = true;
-	              this.curset[j].overlaps = true;
+	        for(var i=0;i<this.curvalues.length-1;i++){
+	              this.curset[this.curvalues[i][0]].overlaps = true;
+	              this.curset[this.curvalues[i][1]].overlaps = true;
 	            }
-	            counter++;
-	          }
-	        }
-	      }
 	    },
 	
 	    getOverlappingLabelsIndexes:function(){
-	      var counter=0, result=[];
-	      for(var i in this.curset)
-	        for(var j in this.curset)
-	          if(i>j){
-	            if(this.curvalues[counter]>0){
-	           result.push(i); result.push(j);
-	         }
-	         counter++;
-	       }
+	      var result=[];
+	      for(var k in this.curset)result.push(false);
+	      for(var i=0;i<this.curvalues.length-1;i++){
+	        var row = this.curvalues[i][0], col = this.curvalues[i][1];
+	        result[row]=true; result[col]=true;
+	      }
 	      return result;
 	    },
 	
@@ -1630,7 +1618,9 @@
 	    },
 	
 	    applyNewPositionsForLabelsInArray:function(idx_array){
-	      for(var i in idx_array)this.swapCandidateInLabelSetToNew(idx_array[i]);
+	      for(var i in idx_array)
+	        if(idx_array[i])
+	          this.swapCandidateInLabelSetToNew(i);
 	    }
 	  };
 	  return result;
