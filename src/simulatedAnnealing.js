@@ -7,6 +7,11 @@ var candidateGenerator =require("./CandidateGenerator.js");
 var simulatedAnnealing =function(autoLabelMan,options) {
   var result = {
   aManager:autoLabelMan,
+
+  _overlapPair:function(i,j){
+
+  },
+
   /**
   summarizing ovelapping of all layers. We store for each label it's total overlapping area with others, the sum values for all labels
   @param {Array}:curset:
@@ -14,11 +19,13 @@ var simulatedAnnealing =function(autoLabelMan,options) {
   @memberof MapAutoLabelSupport#
   */
   evaluateCurSet:function(){
-    this.aManager.curvalues=[];
     for(var i in this.aManager.conflictMatrix){
       var ij = this.aManager.conflictMatrix[i];
       var curlabel_value = geomEssentials.checkOverLappingArea(this.aManager.curset[ij[0]].poly(),this.aManager.curset[ij[1]].poly(),false);
-      if(curlabel_value>0)this.aManager.curvalues.push([ij[0],ij[1],curlabel_value]);
+      if(curlabel_value>0){
+        ij[2]++;
+        this.aManager.curvalues[i] = curlabel_value;
+      }
     }
     this.assignCostFunctionValuesToLastEl();
   },
@@ -29,7 +36,7 @@ var simulatedAnnealing =function(autoLabelMan,options) {
   */
   assignCostFunctionValuesToLastEl:function(){
     var res=0;
-    for(var i in this.aManager.curvalues)res+=this.aManager.curvalues[i][2];
+    for(var i in this.aManager.curvalues)res+=this.aManager.curvalues[i];
     this.aManager.curvalues.push(res);
   },
 
@@ -42,7 +49,7 @@ var simulatedAnnealing =function(autoLabelMan,options) {
         var changedLabelIndex = (changedLabels[i])?i:-1;
         for(var j=0;j<this.aManager.curset.length;j++)if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
           if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
-            var area=geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),this.options.minimizeTotalOverlappingArea); //and recalculate areas
+            var area=geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false); //and recalculate areas
             this.aManager.curvalues[counter]=area;
             }
             counter++;
@@ -69,7 +76,7 @@ var simulatedAnnealing =function(autoLabelMan,options) {
     this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
     this.options.debug=this.options.debug || true;
     this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
-    candidateGenerator.options.lineDiscreteStepPx = this.options.lineDiscreteStepPx || candidateGenerator.options.lineDiscreteStepPx; //pixels
+    this.options.maxContiniousOverlapsForPair = this.options.maxOverlapsForPair || 50;
   },
 
   _doReturn:function(iterations){
@@ -93,8 +100,7 @@ var simulatedAnnealing =function(autoLabelMan,options) {
       var improvements_count=0, no_improve_count=0;
       for(var i=0;i<this.options.constant_temp_repositionings*this.aManager.curset.length;i++){ //while constant temperature, do some replacments
         this.aManager.saveOld();
-        var overlapped_indexes = this.aManager.getOverlappingLabelsIndexes();
-        this.aManager.applyNewPositionsForLabelsInArray(overlapped_indexes);
+        this.aManager.applyNewPosToOverlappedLabels();
         // this.evaluateAfterSeveralChanged(overlapped_indexes);
         this.evaluateCurSet();
         iterations++;
@@ -137,7 +143,7 @@ var simulatedAnnealing =function(autoLabelMan,options) {
         else{
           var t0 = performance.now();
           this._doAnnealing();
-          this.dodebug('overlapping labels count = '+this.aManager.overlap_count()+
+          this.dodebug('overlapping labels count = '+this.aManager.countOverlappedLabels()+
                        ', total labels count = '+this.aManager.curset.length+', iterations = '+this.aManager.iterations);
           this.dodebug('time to annealing = '+(performance.now()-t0));
           callback.call(context,this.aManager.curset);

@@ -46,6 +46,7 @@ var autoLabelManager = function(all_items){
 
     _testPossibleFitting:function(ind1,ind2){
       //TODO
+      return true;
     },
 
     /**
@@ -65,26 +66,30 @@ var autoLabelManager = function(all_items){
       for(var i in this.items){
         for(var j in this.items)if(i>j){
           var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());
-          _testPossibleFitting
-          if(curClip.length>0)this.conflictMatrix.push([i,j]);
-
+          if(curClip.length>0 && this._testPossibleFitting(i,j)){
+            this.conflictMatrix.push([i,j,0]);//i,j,overlapCount for this pair
+            this.curvalues.push(0);
+          }
         }
       }
     },
 
     markOveralppedLabels:function(){
-        for(var i=0;i<this.curvalues.length-1;i++){
-              this.curset[this.curvalues[i][0]].overlaps = true;
-              this.curset[this.curvalues[i][1]].overlaps = true;
-            }
+        for(var i in this.conflictMatrix){
+          if(this.curvalues[i]>0){
+            var ij = this.conflictMatrix[i];
+            this.curset[ij[0]].overlaps = true;
+            this.curset[ij[1]].overlaps = true;
+          }
+        }
     },
 
-    getOverlappingLabelsIndexes:function(){
-      var result=[];
-      for(var k in this.curset)result.push(false);
-      for(var i=0;i<this.curvalues.length-1;i++){
-        var row = this.curvalues[i][0], col = this.curvalues[i][1];
-        result[row]=true; result[col]=true;
+    countOverlappedLabels:function(){
+      var result=0;
+      this.markOveralppedLabels();
+      for(var i in this.curset)if(this.curset[i].overlaps){
+        this.curset[i].overlaps=false;
+        result++;
       }
       return result;
     },
@@ -102,10 +107,14 @@ var autoLabelManager = function(all_items){
       this.curset[idx]=new_candidate;
     },
 
-    applyNewPositionsForLabelsInArray:function(idx_array){
-      for(var i in idx_array)
-        if(idx_array[i])
+    applyNewPosToOverlappedLabels:function(){
+      this.markOveralppedLabels();
+      for(var i in this.curset){
+        if(this.curset[i].overlaps){
           this.swapCandidateInLabelSetToNew(i);
+          this.curset[i].overlaps=false;
+        }
+      }
     }
   };
   return result;
