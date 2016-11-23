@@ -1728,6 +1728,7 @@
 	      }
 	    };
 	
+	    //TODO add prototyping || classes to handle differenet approaches for pt, poly and lines
 	    //Not a very proper way to do such deal
 	    if(basic_item.layer_type()==0){
 	      return;
