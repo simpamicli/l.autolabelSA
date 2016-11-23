@@ -112,11 +112,8 @@ L.AutoLabeler = L.Evented.extend(
           return;
         }
         var annMan = new autoLabelManager(all_items);
-        // annMan.getInitialRandomState();
-        // this._renderNodes(annMan.curset);
         var annPerformer = new simulatedAnnealing(annMan,this.options.annealingOptions);
         annPerformer.perform(this._renderNodes,this);
-        //simulatedAnnealing.perform(annMan,this.options.annealingOptions,this._renderNodes,this);
       }else{
         this._clearNodes();
       }
@@ -193,5 +190,3 @@ L.AutoLabeler = L.Evented.extend(
 L.autoLabeler = function(map,options){
   return new L.AutoLabeler(map,options);
 }
-
-// module.exports = autoLabeler;

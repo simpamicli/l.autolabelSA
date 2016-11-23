@@ -13,6 +13,9 @@ module.exports = {
   @param {L.Layer} layer: a feature (Marker, Polyline, Path) to aquire data
   */
   labelItem:function(text,style,txSize,layer,hostArray){
+
+    var minTolerativeDistancePx = 5; //const
+
     var basic_item= {
       data:[],
       text:text,
@@ -20,7 +23,7 @@ module.exports = {
       txSize:txSize,
       layer:layer,
       host:hostArray,
-      _itemPoly:false, //all available textlabel positions for this label
+      _itemPoly:false, //all available textlabel positions for this label comin in 1 polygon
       ignoreWhileLabel:false,
       index:function(){
         return this.host.lastIndexOf(this);
@@ -69,7 +72,7 @@ module.exports = {
         var nextPart=partIndex+1;
         if(nextPart<this.layer._parts.length){
           var notClonedNow=true;
-          while((this.layer._parts[partIndex][this.layer._parts[partIndex].length-1].distanceTo(this.layer._parts[nextPart][0])<5)
+          while((this.layer._parts[partIndex][this.layer._parts[partIndex].length-1].distanceTo(this.layer._parts[nextPart][0])<minTolerativeDistancePx)
                  &&(nextPart+1<this.layer._parts.length)){
             if(notClonedNow)this.data = this.layer._parts[partIndex].slice(0);
             Array.prototype.push.apply(this.data, this.layer._parts[nextPart].slice(0));
@@ -124,7 +127,7 @@ module.exports = {
 
       /**
       Used for calculationg overlaps for text along path (textPath SVG).
-      TODO avoid or smooth sharp angles to keep text fully visible 
+      TODO avoid or smooth sharp angles to keep text fully visible
       @param {Number} start_offset: global offset for this polyline (item), same as used in rendering
       @param {LabelItem} item:
       @returns {Array} : a poly bounding curved text
