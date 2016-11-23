@@ -3,6 +3,7 @@ var geomEssentials = require('./geomEssentials.js');
 var simulatedAnnealing = require('./simulatedAnnealing.js');
 var autoLabelManager =require("./autoLabelManager.js");
 var dataReader = require('./DataReader.js');
+var fgenerator = require('./featureGenerator.js');
 
 L.AutoLabeler = L.Evented.extend(
  {
@@ -24,6 +25,9 @@ L.AutoLabeler = L.Evented.extend(
     initialize: function (map, options) {
       L.setOptions(this, options);
       this._map=map;
+      fgenerator._map = map;
+      fgenerator.createLayers();
+      fgenerator._pointsLayer.enableAutoLabel();
     },
 
     hasLayer:function(layer){
@@ -104,6 +108,8 @@ L.AutoLabeler = L.Evented.extend(
     _doAutoLabel:function() {
       if(!this._autoLabel)return; //nothing to do here
       if(this._map.getZoom()>this.options.zoomToStartLabel){
+        fgenerator.setMapBounds();
+        fgenerator.genPoints(30,10);
         dataReader._map=this._map;
         var all_items  =dataReader.readDataToLabel(this._map) //array for storing paths and values
         dataReader.prepareCurSegments(all_items,{maxlabelcount:80});
