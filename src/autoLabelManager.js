@@ -9,6 +9,7 @@ var autoLabelManager = function(all_items){
     conflictMatrix:[],
     _oldvalues:[],
     _oldset:[],
+    hasAnywayOverlaps:false,
     overlap_count:function(){
       return (this.curvalues.length>0)?this.curvalues[this.curvalues.length-1]:0;
     },
@@ -67,16 +68,16 @@ var autoLabelManager = function(all_items){
         for(var j in this.items)if(i>j){
           var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());
           if(curClip.length>0 && this._testPossibleFitting(i,j)){
-            this.conflictMatrix.push([i,j,0]);//i,j,overlapCount for this pair
+            this.conflictMatrix.push([i,j,0,false]);//i,j,overlapCount for this pair, if overlaps anyway
             this.curvalues.push(0);
           }
         }
       }
     },
 
-    markOveralppedLabels:function(){
+    markOveralppedLabels:function(includeAnywayOverlaps){
         for(var i in this.conflictMatrix){
-          if(this.curvalues[i]>0){
+          if(this.curvalues[i]>0 || (includeAnywayOverlaps && this.conflictMatrix[i][3])){
             var ij = this.conflictMatrix[i];
             this.curset[ij[0]].overlaps = true;
             this.curset[ij[1]].overlaps = true;
@@ -84,11 +85,10 @@ var autoLabelManager = function(all_items){
         }
     },
 
-    countOverlappedLabels:function(){
+    countOverlappedLabels:function(includeAnywayOverlaps){
       var result=0;
-      this.markOveralppedLabels();
+      this.markOveralppedLabels(includeAnywayOverlaps);
       for(var i in this.curset)if(this.curset[i].overlaps){
-        this.curset[i].overlaps=false;
         result++;
       }
       return result;

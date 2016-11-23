@@ -21,42 +21,19 @@ var simulatedAnnealing =function(autoLabelMan,options) {
   evaluateCurSet:function(){
     for(var i in this.aManager.conflictMatrix){
       var ij = this.aManager.conflictMatrix[i];
+      if(ij[2]>this.options.maxOverlapsForPair){
+        this.aManager.curvalues[i]=0;
+        ij[3]=true;
+        this.aManager.hasAnywayOverlaps=true;
+        continue;
+      }
       var curlabel_value = geomEssentials.checkOverLappingArea(this.aManager.curset[ij[0]].poly(),this.aManager.curset[ij[1]].poly(),false);
       if(curlabel_value>0){
         ij[2]++;
         this.aManager.curvalues[i] = curlabel_value;
-      }
+      }else this.aManager.curvalues[i]=0;
     }
-    this.assignCostFunctionValuesToLastEl();
-  },
-
-  /**
-  may be a custom function, must add result as last value of input array
-  @param {Array} overlapping_values: input array of areas
-  */
-  assignCostFunctionValuesToLastEl:function(){
-    var res=0;
-    for(var i in this.aManager.curvalues)res+=this.aManager.curvalues[i];
-    this.aManager.curvalues.push(res);
-  },
-
-  /**
-  calculates total overlapping area with knowlesge of previous value and what label was moved, affects curvalues
-  */
-  evaluateAfterSeveralChanged:function(changedLabels) {
-    var counter=0; //index to iterate through curvalue array
-      for(var i=0;i<this.aManager.curset.length;i++){
-        var changedLabelIndex = (changedLabels[i])?i:-1;
-        for(var j=0;j<this.aManager.curset.length;j++)if(i>j){ //i,j like we used them in the evaluateCurSet function, so we get similar counter values
-          if(i===changedLabelIndex||j===changedLabelIndex){ //here we obtain all indexes of curvales array corresponding to changedLabelIndex
-            var area=geomEssentials.checkOverLappingArea(this.aManager.curset[i].poly(),this.aManager.curset[j].poly(),false); //and recalculate areas
-            this.aManager.curvalues[counter]=area;
-            }
-            counter++;
-          }
-      }
-    this.aManager.curvalues.pop(); //remove prev sum
-    this.assignCostFunctionValuesToLastEl();
+    this.aManager.curvalues.push(this.aManager.countOverlappedLabels());
   },
 
   dodebug:function(message){
@@ -76,11 +53,10 @@ var simulatedAnnealing =function(autoLabelMan,options) {
     this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
     this.options.debug=this.options.debug || true;
     this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
-    this.options.maxContiniousOverlapsForPair = this.options.maxOverlapsForPair || 50;
+    this.options.maxOverlapsForPair = this.options.maxOverlapsForPair || 50;
   },
 
   _doReturn:function(iterations){
-    this.aManager.markOveralppedLabels();
     this.aManager.iterations=iterations;
   },
 
@@ -104,8 +80,10 @@ var simulatedAnnealing =function(autoLabelMan,options) {
         // this.evaluateAfterSeveralChanged(overlapped_indexes);
         this.evaluateCurSet();
         iterations++;
-        if(this.aManager.overlap_count() === 0){ return this._doReturn(iterations); }
-        if(iterations>this.options.maxtotaliterations){ return this._doReturn(iterations); }
+        if(this.aManager.overlap_count() === 0){
+          return this._doReturn(iterations); }
+        if(iterations>this.options.maxtotaliterations){
+           return this._doReturn(iterations); }
         var delta = (this.aManager.old_overlap_count() - this.aManager.overlap_count());
         if(delta<0){//ie, new labeling is worse!
           var P=1 - Math.exp(delta/t);
@@ -143,9 +121,10 @@ var simulatedAnnealing =function(autoLabelMan,options) {
         else{
           var t0 = performance.now();
           this._doAnnealing();
-          this.dodebug('overlapping labels count = '+this.aManager.countOverlappedLabels()+
+          this.dodebug('overlapping labels count = '+this.aManager.countOverlappedLabels(true)+
                        ', total labels count = '+this.aManager.curset.length+', iterations = '+this.aManager.iterations);
           this.dodebug('time to annealing = '+(performance.now()-t0));
+          if(this.aManager.hasAnywayOverlaps)this.dodebug('some labels are likely to overlap anyway here.')
           callback.call(context,this.aManager.curset);
           }
       }
