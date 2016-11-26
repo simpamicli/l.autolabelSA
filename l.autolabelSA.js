@@ -65,7 +65,7 @@
 	      /**
 	      handle removing layer from the map
 	      */
-	      onRemove: function (map) {
+	    onRemove: function (map) {
 	      this.disableAutoLabel();
 	        __onRemove.call(this, map);
 	    },
@@ -156,7 +156,6 @@
 	      this._map=map;
 	      fgenerator._map = map;
 	      fgenerator.createLayers();
-	      fgenerator._pointsLayer.enableAutoLabel();
 	    },
 	
 	    hasLayer:function(layer){
@@ -239,6 +238,7 @@
 	      if(this._map.getZoom()>this.options.zoomToStartLabel){
 	        fgenerator.setMapBounds();
 	        fgenerator.genPoints(30,10);
+	        fgenerator._pointsLayer.enableAutoLabel({});
 	        dataReader._map=this._map;
 	        var all_items  =dataReader.readDataToLabel(this._map) //array for storing paths and values
 	        dataReader.prepareCurSegments(all_items,{maxlabelcount:80});
@@ -289,30 +289,45 @@
 	      this._clearNodes(); //clearscreen
 	      var curID,cur_zero_offset=0; //for handling several parts path - to ensure we have label on each part of feature
 	      for(var m in labelset){
-	        if(!curID){
-	          curID = labelset[m]._item.layer._path.id;
-	        }else if(curID!==labelset[m]._item.layer._path.id){ //new feature -> start offset from 0
-	          cur_zero_offset=0;
-	          curID = labelset[m]._item.layer._path.id;
-	        }else
-	         cur_zero_offset+=labelset[m-1]._item.totalLength;
-	         var cOffset =Math.round(cur_zero_offset+labelset[m].offset_or_origin);
-	         if(this.options.showBBoxes){
-	           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+cOffset+'@'+labelset[m]._item.txSize.x);
-	         }
-	        labelset[m]._item.layer.feature.properties.alabel_offset=m+'__'+cOffset;
-	        var textPath = L.SVG.create('textPath');
-	        textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
-	        textPath.setAttribute('startOffset',cOffset);
-	        textPath.appendChild(document.createTextNode(labelset[m]._item.text));
+	
 	        var txNode = DOMEssentials.createSVGTextNode("",labelset[m]._item.style);
-	        txNode.appendChild(textPath);
+	
+	        switch (labelset[m]._item.layer_type()) {
+	          case 0:
+	            txNode.setAttribute('x', labelset[m].offset_or_origin.x);
+	            txNode.setAttribute('y', labelset[m].offset_or_origin.y);
+	            txNode.textContent = labelset[m]._item.text;
+	            break;
+	          case 1:{
+	
+	            if(!curID){
+	              curID = labelset[m]._item.layer._path.id;
+	            }else if(curID!==labelset[m]._item.layer._path.id){ //new feature -> start offset from 0
+	              cur_zero_offset=0;
+	              curID = labelset[m]._item.layer._path.id;
+	            }else
+	             cur_zero_offset+=labelset[m-1]._item.totalLength;
+	            var cOffset =Math.round(cur_zero_offset+labelset[m].offset_or_origin);
+	            var textPath = L.SVG.create('textPath');
+	            textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
+	            textPath.setAttribute('startOffset',cOffset);
+	            textPath.appendChild(document.createTextNode(labelset[m]._item.text));
+	            txNode.appendChild(textPath);
+	            break;
+	          }
+	        }
+	
+	        if(this.options.showBBoxes){
+	           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+cOffset+'@'+labelset[m]._item.txSize.x);
+	        }
+	
+	        labelset[m]._item.layer.feature.properties.alabel_offset=m+'__'+cOffset;
+	
 	        txNode.setAttribute('id','auto_label'+m);
 	        svg.appendChild(txNode);
 	      }
 	      if(this.options.showBBoxes){
 	        this._polyLayer.eachLayer(function(layer){
-	            //layer.bindPopup(layer.data_to_show);
 	            layer.on('click',function(e){
 	              console.log(layer.data_to_show);
 	            });
@@ -756,7 +771,7 @@
 	  movePolyByAdding:function(poly,pt2add) {
 	    var res=poly.slice(0);
 	    for(var i=0;i<poly.length;i++){
-	      res[i][0]+=pt2add[0]; res[i][1]+=pt2add[1];
+	      res[i][0]+=pt2add.x; res[i][1]+=pt2add.y;
 	    }
 	    return res;
 	  },
@@ -770,12 +785,43 @@
 	  */
 	  movePolyByMovingTo:function(poly,moveto){
 	    var res=poly.slice(0);
-	    moveto[0] = moveto[0]-poly[0][0];
-	    moveto[1] = moveto[1]-poly[0][1];
+	    moveto.x = moveto.x-poly[0][0];
+	    moveto.y = moveto.y-poly[0][1];
 	    for(var i=1;i<poly.length;i++){
-	      res[i][0]+=moveto[0]; res[i][1]+=moveto[1];
+	      res[i][0]+=moveto.x; res[i][1]+=moveto.y;
 	    }
 	    return res;
+	  },
+	
+	  /**
+	  @param {L.Bounds} bounds
+	  */
+	  boundsToPointArray:function (bounds) {
+	    var min = bounds.min, max = bounds.max;
+	    var result = [[min.x,min.y], [min.x,max.y], [max.x,max.y], [max.x,min.y]];
+	    return result;
+	  },
+	
+	  /**
+	  computex a domain poly (contains all available text positions for this pt)
+	  @param {L.Point} pt
+	  @param {L.Point} txSize
+	  @returns {Array} : polygon
+	  */
+	  getPointTextDomain:function(pt,txSize){
+	    var temp_bounds = L.bounds(pt,pt.add(txSize));
+	    temp_bounds.extend(pt.subtract(txSize));
+	    return this.boundsToPointArray(temp_bounds);
+	  },
+	
+	  /**
+	  @param {L.Point} pt
+	  @param {L.Point} txSize
+	  @returns {Array} : polygon
+	  */
+	  getSimplePolyText:function(pt,txSize){
+	    var temp_bounds = L.bounds(L.point(0,0),(txSize));
+	    return this.boundsToPointArray(temp_bounds);
 	  }
 	}
 	
@@ -1556,8 +1602,6 @@
 	    */
 	    compConflictMatrix:function(){
 	      this.conflictMatrix=[];
-	      //no need to intersect i,j items and j,i items
-	      //TODO mark items which overlaps anyway
 	      for(var i in this.items){
 	        for(var j in this.items)if(i>j){
 	          var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());
@@ -1629,8 +1673,17 @@
 	    lineDiscreteStepPx:3
 	  },
 	
-	  obtainCandidateForPoint:function(point){
-	    //TODO[obtainCandidateForPoint]
+	  /**
+	  @param {PointItem} item
+	  @returns {Array} : a poly bounding text, placed somewhere in point's available domain
+	  */
+	  obtainCandidateForPoint:function(item){
+	    //for now, we assume following palcement rule: origin point for text is less then pt.x,pt.y and greater then (pt-txSize).x and .y
+	    var pt_domain = item.getItemPoly(); //clockwise poly
+	    var randomX = pt_domain[1][0] + Math.random() * item.txSize.x;
+	    var randomY = pt_domain[1][1] + Math.random() * item.txSize.y;
+	    var candidate = itemFactory.candidatePosition(L.point(randomX,randomY),item);
+	    return candidate;
 	  },
 	
 	  obtainCandidateForPoly:function(polygon){
@@ -1639,7 +1692,7 @@
 	
 	  /**
 	  Get a poly (simple with no text along path)for random offset on the polyline
-	  @param {Object} item: item from prepareCurSegments's allsegs
+	  @param {LineItem} item: item from prepareCurSegments's allsegs
 	  @returns {Array} : a poly bounding text, placed on corresponding point for offset on poluline and rotated to match segment's skew
 	  */
 	  obtainCandidateForPolyLineByRandomStartOffset:function(item){
@@ -1656,8 +1709,10 @@
 	  computeLabelCandidate:function(i,all_items) {
 	    var candidate;
 	    switch (all_items[i].layer_type()) {
-	      case 0:
-	        break;
+	      case 0:{
+	          candidate = this.obtainCandidateForPoint(all_items[i]);
+	          break;
+	      }
 	      case 1:{
 	          candidate=this.obtainCandidateForPolyLineByRandomStartOffset(all_items[i]);
 	          break;
@@ -1727,11 +1782,10 @@
 	var PointItem = L.Class.extend({
 	  initialize:function(options){
 	    this.initializeBase(options);
-	    this.isDegenerate = true;
 	  },
 	
 	  _getBoundary: function(){
-	    return false; //TODO
+	    return geomEssentials.getPointTextDomain(this.data,this.txSize);
 	  },
 	
 	  applyFeatureData:function(){
@@ -1739,7 +1793,9 @@
 	  },
 	
 	  readData:function(){
-	
+	    var ll = this.layer.getLatLng();
+	    this.data = this.layer._map.latLngToLayerPoint(ll);
+	    this._simplePoly = geomEssentials.getSimplePolyText(this.data,this.txSize);
 	  }
 	})
 	
@@ -1834,6 +1890,7 @@
 	      _item:item,
 	      offset_or_origin:offset_or_origin,
 	      _poly:false,
+	
 	      all_items_index:function(){
 	        return this._item.index();
 	      },
@@ -1853,15 +1910,22 @@
 	        return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
 	      },
 	
+	      _computePolyForPoint:function(){
+	        return geomEssentials.movePolyByAdding(this._item._simplePoly,this.offset_or_origin);
+	      },
+	
 	      /**
 	      common function switch for computing poly for different layer_types
-	
 	      */
 	      _computePoly:function(){
-	        switch(item.layer_type()){
-	          case 0:break;
+	        switch(this._item.layer_type()){
+	          case 0:{
+	            this._poly = this._computePolyForPoint();
+	            break;
+	          }
 	          case 1:{
 	              this._poly = this._computePolyForLine();
+	              break;
 	            }
 	          case 2:break;
 	        }

@@ -19,7 +19,7 @@
       /**
       handle removing layer from the map
       */
-      onRemove: function (map) {
+    onRemove: function (map) {
       this.disableAutoLabel();
         __onRemove.call(this, map);
     },

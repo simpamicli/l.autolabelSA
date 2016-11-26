@@ -49,11 +49,10 @@ var BasicMixin = {
 var PointItem = L.Class.extend({
   initialize:function(options){
     this.initializeBase(options);
-    this.isDegenerate = true;
   },
 
   _getBoundary: function(){
-    return false; //TODO
+    return geomEssentials.getPointTextDomain(this.data,this.txSize);
   },
 
   applyFeatureData:function(){
@@ -61,7 +60,9 @@ var PointItem = L.Class.extend({
   },
 
   readData:function(){
-
+    var ll = this.layer.getLatLng();
+    this.data = this.layer._map.latLngToLayerPoint(ll);
+    this._simplePoly = geomEssentials.getSimplePolyText(this.data,this.txSize);
   }
 })
 
@@ -156,6 +157,7 @@ module.exports = {
       _item:item,
       offset_or_origin:offset_or_origin,
       _poly:false,
+
       all_items_index:function(){
         return this._item.index();
       },
@@ -175,15 +177,22 @@ module.exports = {
         return geomEssentials.computeLineBoundaryPolygon(subPolyline,item.txSize.y);
       },
 
+      _computePolyForPoint:function(){
+        return geomEssentials.movePolyByAdding(this._item._simplePoly,this.offset_or_origin);
+      },
+
       /**
       common function switch for computing poly for different layer_types
-
       */
       _computePoly:function(){
-        switch(item.layer_type()){
-          case 0:break;
+        switch(this._item.layer_type()){
+          case 0:{
+            this._poly = this._computePolyForPoint();
+            break;
+          }
           case 1:{
               this._poly = this._computePolyForLine();
+              break;
             }
           case 2:break;
         }

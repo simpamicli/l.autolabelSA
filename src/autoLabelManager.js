@@ -62,8 +62,6 @@ var autoLabelManager = function(all_items){
     */
     compConflictMatrix:function(){
       this.conflictMatrix=[];
-      //no need to intersect i,j items and j,i items
-      //TODO mark items which overlaps anyway
       for(var i in this.items){
         for(var j in this.items)if(i>j){
           var curClip=geomEssentials.clipPoly(this.items[i].getItemPoly(),this.items[j].getItemPoly());

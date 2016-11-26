@@ -365,7 +365,7 @@ clipPoly:function(poly1,poly2){
   movePolyByAdding:function(poly,pt2add) {
     var res=poly.slice(0);
     for(var i=0;i<poly.length;i++){
-      res[i][0]+=pt2add[0]; res[i][1]+=pt2add[1];
+      res[i][0]+=pt2add.x; res[i][1]+=pt2add.y;
     }
     return res;
   },
@@ -379,12 +379,43 @@ clipPoly:function(poly1,poly2){
   */
   movePolyByMovingTo:function(poly,moveto){
     var res=poly.slice(0);
-    moveto[0] = moveto[0]-poly[0][0];
-    moveto[1] = moveto[1]-poly[0][1];
+    moveto.x = moveto.x-poly[0][0];
+    moveto.y = moveto.y-poly[0][1];
     for(var i=1;i<poly.length;i++){
-      res[i][0]+=moveto[0]; res[i][1]+=moveto[1];
+      res[i][0]+=moveto.x; res[i][1]+=moveto.y;
     }
     return res;
+  },
+
+  /**
+  @param {L.Bounds} bounds
+  */
+  boundsToPointArray:function (bounds) {
+    var min = bounds.min, max = bounds.max;
+    var result = [[min.x,min.y], [min.x,max.y], [max.x,max.y], [max.x,min.y]];
+    return result;
+  },
+
+  /**
+  computex a domain poly (contains all available text positions for this pt)
+  @param {L.Point} pt
+  @param {L.Point} txSize
+  @returns {Array} : polygon
+  */
+  getPointTextDomain:function(pt,txSize){
+    var temp_bounds = L.bounds(pt,pt.add(txSize));
+    temp_bounds.extend(pt.subtract(txSize));
+    return this.boundsToPointArray(temp_bounds);
+  },
+
+  /**
+  @param {L.Point} pt
+  @param {L.Point} txSize
+  @returns {Array} : polygon
+  */
+  getSimplePolyText:function(pt,txSize){
+    var temp_bounds = L.bounds(L.point(0,0),(txSize));
+    return this.boundsToPointArray(temp_bounds);
   }
 }
 

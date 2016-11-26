@@ -27,7 +27,6 @@ L.AutoLabeler = L.Evented.extend(
       this._map=map;
       fgenerator._map = map;
       fgenerator.createLayers();
-      fgenerator._pointsLayer.enableAutoLabel();
     },
 
     hasLayer:function(layer){
@@ -110,6 +109,7 @@ L.AutoLabeler = L.Evented.extend(
       if(this._map.getZoom()>this.options.zoomToStartLabel){
         fgenerator.setMapBounds();
         fgenerator.genPoints(30,10);
+        fgenerator._pointsLayer.enableAutoLabel({});
         dataReader._map=this._map;
         var all_items  =dataReader.readDataToLabel(this._map) //array for storing paths and values
         dataReader.prepareCurSegments(all_items,{maxlabelcount:80});
@@ -160,30 +160,45 @@ L.AutoLabeler = L.Evented.extend(
       this._clearNodes(); //clearscreen
       var curID,cur_zero_offset=0; //for handling several parts path - to ensure we have label on each part of feature
       for(var m in labelset){
-        if(!curID){
-          curID = labelset[m]._item.layer._path.id;
-        }else if(curID!==labelset[m]._item.layer._path.id){ //new feature -> start offset from 0
-          cur_zero_offset=0;
-          curID = labelset[m]._item.layer._path.id;
-        }else
-         cur_zero_offset+=labelset[m-1]._item.totalLength;
-         var cOffset =Math.round(cur_zero_offset+labelset[m].offset_or_origin);
-         if(this.options.showBBoxes){
-           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+cOffset+'@'+labelset[m]._item.txSize.x);
-         }
-        labelset[m]._item.layer.feature.properties.alabel_offset=m+'__'+cOffset;
-        var textPath = L.SVG.create('textPath');
-        textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
-        textPath.setAttribute('startOffset',cOffset);
-        textPath.appendChild(document.createTextNode(labelset[m]._item.text));
+
         var txNode = DOMEssentials.createSVGTextNode("",labelset[m]._item.style);
-        txNode.appendChild(textPath);
+
+        switch (labelset[m]._item.layer_type()) {
+          case 0:
+            txNode.setAttribute('x', labelset[m].offset_or_origin.x);
+            txNode.setAttribute('y', labelset[m].offset_or_origin.y);
+            txNode.textContent = labelset[m]._item.text;
+            break;
+          case 1:{
+
+            if(!curID){
+              curID = labelset[m]._item.layer._path.id;
+            }else if(curID!==labelset[m]._item.layer._path.id){ //new feature -> start offset from 0
+              cur_zero_offset=0;
+              curID = labelset[m]._item.layer._path.id;
+            }else
+             cur_zero_offset+=labelset[m-1]._item.totalLength;
+            var cOffset =Math.round(cur_zero_offset+labelset[m].offset_or_origin);
+            var textPath = L.SVG.create('textPath');
+            textPath.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", '#'+curID);
+            textPath.setAttribute('startOffset',cOffset);
+            textPath.appendChild(document.createTextNode(labelset[m]._item.text));
+            txNode.appendChild(textPath);
+            break;
+          }
+        }
+
+        if(this.options.showBBoxes){
+           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+cOffset+'@'+labelset[m]._item.txSize.x);
+        }
+
+        labelset[m]._item.layer.feature.properties.alabel_offset=m+'__'+cOffset;
+
         txNode.setAttribute('id','auto_label'+m);
         svg.appendChild(txNode);
       }
       if(this.options.showBBoxes){
         this._polyLayer.eachLayer(function(layer){
-            //layer.bindPopup(layer.data_to_show);
             layer.on('click',function(e){
               console.log(layer.data_to_show);
             });
