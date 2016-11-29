@@ -11,11 +11,10 @@ var candidateGenerator = {
   @returns {Array} : a poly bounding text, placed somewhere in point's available domain
   */
   obtainCandidateForPoint:function(item){
-    //for now, we assume following palcement rule: origin point for text is less then pt.x,pt.y and greater then (pt-txSize).x and .y
-    var pt_domain = item.getItemPoly(); //clockwise poly
-    var randomX = pt_domain[1][0] + Math.random() * item.txSize.x;
-    var randomY = pt_domain[1][1] + Math.random() * item.txSize.y;
-    var candidate = itemFactory.candidatePosition(L.point(randomX,randomY),item);
+    var avOriginsSize = item._availableOrigins.getSize();
+    var randomX =item._availableOrigins.min.x + Math.random() * avOriginsSize.x;
+    var randomY =item._availableOrigins.min.y + Math.random() * avOriginsSize.y;
+    var candidate = itemFactory.candidatePosition(L.point(randomX,randomY - item.txSize.y),item);
     return candidate;
   },
 
@@ -25,7 +24,7 @@ var candidateGenerator = {
 
   /**
   Get a poly (simple with no text along path)for random offset on the polyline
-  @param {LineItem} item: item from prepareCurSegments's allsegs
+  @param {LineItem} item: item from prepareCollectedData's allsegs
   @returns {Array} : a poly bounding text, placed on corresponding point for offset on poluline and rotated to match segment's skew
   */
   obtainCandidateForPolyLineByRandomStartOffset:function(item){

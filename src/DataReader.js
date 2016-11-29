@@ -28,7 +28,7 @@ var dataReader = {
                 style=lg._al_options.labelStyle,
                 node = DOMEssentials.createSVGTextNode(text,style),
                 size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-            if(layer._path)if(layer._parts.length>0){
+            if(layer._path)if(layer._parts)if(layer._parts.length>0){
               var id = 'pathautolabel-' + L.Util.stamp(layer);
               layer._path.setAttribute('id',id);
               layer.feature.properties.alabel_offset="";
@@ -57,7 +57,7 @@ var dataReader = {
   @param {Array} all_items:
   @param {Set} options: options are:  {integer} maxlabelcount: if more labels in all_items, then do nothing
   */
-  prepareCurSegments:function(all_items,options){
+  prepareCollectedData:function(all_items,options){
     options = options || {};
     options.maxlabelcount=options.maxlabelcount || 100;
     if(all_items.length>options.maxlabelcount || all_items.length==0){
@@ -67,7 +67,7 @@ var dataReader = {
     var i=all_items.length-1;
     while(i>=0)
     {
-      all_items[i].applyFeatureData();
+      all_items[i].computeItemTypeSpecificData();
       if(all_items[i].ignoreWhileLabel)all_items.splice(i,1); //remove if item does not suit it's label for some reason
       i--;
     }

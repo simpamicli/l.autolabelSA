@@ -236,12 +236,14 @@
 	    _doAutoLabel:function() {
 	      if(!this._autoLabel)return; //nothing to do here
 	      if(this._map.getZoom()>this.options.zoomToStartLabel){
+	
 	        fgenerator.setMapBounds();
 	        fgenerator.genPoints(30,10);
 	        fgenerator._pointsLayer.enableAutoLabel({});
+	
 	        dataReader._map=this._map;
 	        var all_items  =dataReader.readDataToLabel(this._map) //array for storing paths and values
-	        dataReader.prepareCurSegments(all_items,{maxlabelcount:80});
+	        dataReader.prepareCollectedData(all_items,{maxlabelcount:80});
 	        if(all_items.length==0){
 	          this._clearNodes();
 	          return;
@@ -249,6 +251,8 @@
 	        var annMan = new autoLabelManager(all_items);
 	        var annPerformer = new simulatedAnnealing(annMan,this.options.annealingOptions);
 	        annPerformer.perform(this._renderNodes,this);
+	        //annMan.getInitialRandomState();
+	        //this._renderNodes(annMan.curset);
 	      }else{
 	        this._clearNodes();
 	      }
@@ -318,7 +322,10 @@
 	        }
 	
 	        if(this.options.showBBoxes){
-	           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+cOffset+'@'+labelset[m]._item.txSize.x);
+	           var poly = labelset[m]._item.getItemPoly();
+	           //this.addPolyToLayer(poly,true);
+	           //poly = geomEssentials.boundsToPointArray( labelset[m]._item._availableOrigins);
+	           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps);
 	        }
 	
 	        labelset[m]._item.layer.feature.properties.alabel_offset=m+'__'+cOffset;
@@ -802,16 +809,24 @@
 	    return result;
 	  },
 	
+	  clipBounds:function(b1,b2){
+	    if(b1.overlaps(b2)){
+	      return new L.bounds([Math.max(b1.min.x,b2.min.x),Math.max(b1.min.y,b2.min.y)],
+	                          [Math.min(b1.max.x,b2.max.x),Math.min(b1.max.y,b2.max.y)]);
+	    }return false;
+	  },
+	
 	  /**
 	  computex a domain poly (contains all available text positions for this pt)
 	  @param {L.Point} pt
 	  @param {L.Point} txSize
-	  @returns {Array} : polygon
+	  @param {L.Bounds} mapbounds
+	  @returns {L.bounds} : polygon
 	  */
-	  getPointTextDomain:function(pt,txSize){
+	  getPointTextDomain:function(pt,txSize,mapbounds){
 	    var temp_bounds = L.bounds(pt,pt.add(txSize));
 	    temp_bounds.extend(pt.subtract(txSize));
-	    return this.boundsToPointArray(temp_bounds);
+	    return this.clipBounds(temp_bounds,mapbounds);
 	  },
 	
 	  /**
@@ -822,6 +837,11 @@
 	  getSimplePolyText:function(pt,txSize){
 	    var temp_bounds = L.bounds(L.point(0,0),(txSize));
 	    return this.boundsToPointArray(temp_bounds);
+	  },
+	
+	  getAvailableTextOriginBounds(textDomain,txSize){
+	    var maxOriginValue = L.point(textDomain.max.x-txSize.x,textDomain.max.y + txSize.y);
+	    return L.bounds(textDomain.min,maxOriginValue);
 	  }
 	}
 	
@@ -1678,11 +1698,10 @@
 	  @returns {Array} : a poly bounding text, placed somewhere in point's available domain
 	  */
 	  obtainCandidateForPoint:function(item){
-	    //for now, we assume following palcement rule: origin point for text is less then pt.x,pt.y and greater then (pt-txSize).x and .y
-	    var pt_domain = item.getItemPoly(); //clockwise poly
-	    var randomX = pt_domain[1][0] + Math.random() * item.txSize.x;
-	    var randomY = pt_domain[1][1] + Math.random() * item.txSize.y;
-	    var candidate = itemFactory.candidatePosition(L.point(randomX,randomY),item);
+	    var avOriginsSize = item._availableOrigins.getSize();
+	    var randomX =item._availableOrigins.min.x + Math.random() * avOriginsSize.x;
+	    var randomY =item._availableOrigins.min.y + Math.random() * avOriginsSize.y;
+	    var candidate = itemFactory.candidatePosition(L.point(randomX,randomY - item.txSize.y),item);
 	    return candidate;
 	  },
 	
@@ -1692,7 +1711,7 @@
 	
 	  /**
 	  Get a poly (simple with no text along path)for random offset on the polyline
-	  @param {LineItem} item: item from prepareCurSegments's allsegs
+	  @param {LineItem} item: item from prepareCollectedData's allsegs
 	  @returns {Array} : a poly bounding text, placed on corresponding point for offset on poluline and rotated to match segment's skew
 	  */
 	  obtainCandidateForPolyLineByRandomStartOffset:function(item){
@@ -1759,7 +1778,6 @@
 	    return this.host.lastIndexOf(this);
 	  },
 	  layer_type:function(){
-	    //TOFIX for polygon
 	    if(!this._layer_type)this._layer_type = layerType(this.layer);
 	    return this._layer_type;
 	  },
@@ -1785,11 +1803,17 @@
 	  },
 	
 	  _getBoundary: function(){
-	    return geomEssentials.getPointTextDomain(this.data,this.txSize);
+	    var pixelBounds = this.layer._map.getPixelBounds();
+	    var pixelOrigin = this.layer._map.getPixelOrigin();
+	    var mapBounds = L.bounds(pixelBounds.min.subtract(pixelOrigin),
+	                             pixelBounds.max.subtract(pixelOrigin));
+	    this._textDomain =  geomEssentials.getPointTextDomain(this.data,this.txSize,mapBounds);
+	    return geomEssentials.boundsToPointArray(this._textDomain);
 	  },
 	
-	  applyFeatureData:function(){
-	    //TODO
+	  computeItemTypeSpecificData:function(){
+	    this.getItemPoly();
+	    this._availableOrigins = geomEssentials.getAvailableTextOriginBounds(this._textDomain,this.txSize);
 	  },
 	
 	  readData:function(){
@@ -1815,9 +1839,8 @@
 	
 	  /**
 	  Calculates total length for this polyline on screen, and lengths of each segments with their angles
-	  @param {labelItem} item: an item to get above data to
 	  */
-	  applyFeatureData:function(){
+	  computeItemTypeSpecificData:function(){
 	    this.totalLength=0;
 	    this.computed_lengths = geomEssentials.computeSegmentsLengths(this.data);
 	    for(var k=0;k<this.computed_lengths.length;k++){
@@ -1975,7 +1998,7 @@
 	                style=lg._al_options.labelStyle,
 	                node = DOMEssentials.createSVGTextNode(text,style),
 	                size = DOMEssentials.getBoundingBox(map_to_add,node); //compute ortho aligned bbox for this text, only once, common for all cases
-	            if(layer._path)if(layer._parts.length>0){
+	            if(layer._path)if(layer._parts)if(layer._parts.length>0){
 	              var id = 'pathautolabel-' + L.Util.stamp(layer);
 	              layer._path.setAttribute('id',id);
 	              layer.feature.properties.alabel_offset="";
@@ -2004,7 +2027,7 @@
 	  @param {Array} all_items:
 	  @param {Set} options: options are:  {integer} maxlabelcount: if more labels in all_items, then do nothing
 	  */
-	  prepareCurSegments:function(all_items,options){
+	  prepareCollectedData:function(all_items,options){
 	    options = options || {};
 	    options.maxlabelcount=options.maxlabelcount || 100;
 	    if(all_items.length>options.maxlabelcount || all_items.length==0){
@@ -2014,7 +2037,7 @@
 	    var i=all_items.length-1;
 	    while(i>=0)
 	    {
-	      all_items[i].applyFeatureData();
+	      all_items[i].computeItemTypeSpecificData();
 	      if(all_items[i].ignoreWhileLabel)all_items.splice(i,1); //remove if item does not suit it's label for some reason
 	      i--;
 	    }
@@ -2056,13 +2079,13 @@
 	    return result;
 	  },
 	
-	  genPoints:function(count,wordlength){    
+	  genPoints:function(count,wordlength){
 	    this._pointsLayer.clearLayers();
 	    if(!this._bounds)this.setMapBounds();
 	    var minx = this._bounds.getWest(), dx = this._bounds.getEast() - minx, miny = this._bounds.getNorth(), dy = this._bounds.getSouth() - miny;
 	    for(var i=0;i<count;i++){
 	      var pos = L.latLng(miny + Math.random()*dy,minx+Math.random()*dx);
-	      var marker = L.marker(pos);
+	      var marker = L.circleMarker(pos);
 	      if(!marker.feature)marker.feature = {};
 	      if(!marker.feature.properties)marker.feature.properties = {};
 	      marker.feature.properties.name = this._genWord(wordlength);

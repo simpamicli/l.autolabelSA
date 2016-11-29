@@ -25,13 +25,13 @@ var featureGenerator = {
     return result;
   },
 
-  genPoints:function(count,wordlength){    
+  genPoints:function(count,wordlength){
     this._pointsLayer.clearLayers();
     if(!this._bounds)this.setMapBounds();
     var minx = this._bounds.getWest(), dx = this._bounds.getEast() - minx, miny = this._bounds.getNorth(), dy = this._bounds.getSouth() - miny;
     for(var i=0;i<count;i++){
       var pos = L.latLng(miny + Math.random()*dy,minx+Math.random()*dx);
-      var marker = L.marker(pos);
+      var marker = L.circleMarker(pos);
       if(!marker.feature)marker.feature = {};
       if(!marker.feature.properties)marker.feature.properties = {};
       marker.feature.properties.name = this._genWord(wordlength);

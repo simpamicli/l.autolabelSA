@@ -26,7 +26,6 @@ var BasicMixin = {
     return this.host.lastIndexOf(this);
   },
   layer_type:function(){
-    //TOFIX for polygon
     if(!this._layer_type)this._layer_type = layerType(this.layer);
     return this._layer_type;
   },
@@ -52,11 +51,17 @@ var PointItem = L.Class.extend({
   },
 
   _getBoundary: function(){
-    return geomEssentials.getPointTextDomain(this.data,this.txSize);
+    var pixelBounds = this.layer._map.getPixelBounds();
+    var pixelOrigin = this.layer._map.getPixelOrigin();
+    var mapBounds = L.bounds(pixelBounds.min.subtract(pixelOrigin),
+                             pixelBounds.max.subtract(pixelOrigin));
+    this._textDomain =  geomEssentials.getPointTextDomain(this.data,this.txSize,mapBounds);
+    return geomEssentials.boundsToPointArray(this._textDomain);
   },
 
-  applyFeatureData:function(){
-    //TODO
+  computeItemTypeSpecificData:function(){
+    this.getItemPoly();
+    this._availableOrigins = geomEssentials.getAvailableTextOriginBounds(this._textDomain,this.txSize);
   },
 
   readData:function(){
@@ -82,9 +87,8 @@ var LineItem = L.Class.extend({
 
   /**
   Calculates total length for this polyline on screen, and lengths of each segments with their angles
-  @param {labelItem} item: an item to get above data to
   */
-  applyFeatureData:function(){
+  computeItemTypeSpecificData:function(){
     this.totalLength=0;
     this.computed_lengths = geomEssentials.computeSegmentsLengths(this.data);
     for(var k=0;k<this.computed_lengths.length;k++){

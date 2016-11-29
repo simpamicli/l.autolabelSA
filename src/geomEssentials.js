@@ -396,16 +396,24 @@ clipPoly:function(poly1,poly2){
     return result;
   },
 
+  clipBounds:function(b1,b2){
+    if(b1.overlaps(b2)){
+      return new L.bounds([Math.max(b1.min.x,b2.min.x),Math.max(b1.min.y,b2.min.y)],
+                          [Math.min(b1.max.x,b2.max.x),Math.min(b1.max.y,b2.max.y)]);
+    }return false;
+  },
+
   /**
   computex a domain poly (contains all available text positions for this pt)
   @param {L.Point} pt
   @param {L.Point} txSize
-  @returns {Array} : polygon
+  @param {L.Bounds} mapbounds
+  @returns {L.bounds} : polygon
   */
-  getPointTextDomain:function(pt,txSize){
+  getPointTextDomain:function(pt,txSize,mapbounds){
     var temp_bounds = L.bounds(pt,pt.add(txSize));
     temp_bounds.extend(pt.subtract(txSize));
-    return this.boundsToPointArray(temp_bounds);
+    return this.clipBounds(temp_bounds,mapbounds);
   },
 
   /**
@@ -416,6 +424,11 @@ clipPoly:function(poly1,poly2){
   getSimplePolyText:function(pt,txSize){
     var temp_bounds = L.bounds(L.point(0,0),(txSize));
     return this.boundsToPointArray(temp_bounds);
+  },
+
+  getAvailableTextOriginBounds(textDomain,txSize){
+    var maxOriginValue = L.point(textDomain.max.x-txSize.x,textDomain.max.y + txSize.y);
+    return L.bounds(textDomain.min,maxOriginValue);
   }
 }
 

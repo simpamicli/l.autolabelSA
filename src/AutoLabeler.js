@@ -107,12 +107,14 @@ L.AutoLabeler = L.Evented.extend(
     _doAutoLabel:function() {
       if(!this._autoLabel)return; //nothing to do here
       if(this._map.getZoom()>this.options.zoomToStartLabel){
+
         fgenerator.setMapBounds();
         fgenerator.genPoints(30,10);
         fgenerator._pointsLayer.enableAutoLabel({});
+
         dataReader._map=this._map;
         var all_items  =dataReader.readDataToLabel(this._map) //array for storing paths and values
-        dataReader.prepareCurSegments(all_items,{maxlabelcount:80});
+        dataReader.prepareCollectedData(all_items,{maxlabelcount:80});
         if(all_items.length==0){
           this._clearNodes();
           return;
@@ -120,6 +122,8 @@ L.AutoLabeler = L.Evented.extend(
         var annMan = new autoLabelManager(all_items);
         var annPerformer = new simulatedAnnealing(annMan,this.options.annealingOptions);
         annPerformer.perform(this._renderNodes,this);
+        //annMan.getInitialRandomState();
+        //this._renderNodes(annMan.curset);
       }else{
         this._clearNodes();
       }
@@ -189,7 +193,10 @@ L.AutoLabeler = L.Evented.extend(
         }
 
         if(this.options.showBBoxes){
-           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,m+'_'+labelset[m]._item.text+'_'+cOffset+'@'+labelset[m]._item.txSize.x);
+           var poly = labelset[m]._item.getItemPoly();
+           //this.addPolyToLayer(poly,true);
+           //poly = geomEssentials.boundsToPointArray( labelset[m]._item._availableOrigins);
+           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps);
         }
 
         labelset[m]._item.layer.feature.properties.alabel_offset=m+'__'+cOffset;
