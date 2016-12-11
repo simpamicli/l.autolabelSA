@@ -121,9 +121,11 @@ L.AutoLabeler = L.Evented.extend(
         }
         var annMan = new autoLabelManager(all_items);
         var annPerformer = new simulatedAnnealing(annMan,this.options.annealingOptions);
-        annPerformer.perform(this._renderNodes,this);
-        //annMan.getInitialRandomState();
-        //this._renderNodes(annMan.curset);
+        //annPerformer.perform(this._renderNodes,this);
+        annMan.getInitialRandomState();
+        annPerformer.evaluateCurSet();
+        annMan.markOveralppedLabels(true);
+        this._renderNodes(annMan.curset);
       }else{
         this._clearNodes();
       }
@@ -136,7 +138,7 @@ L.AutoLabeler = L.Evented.extend(
       var latlngs=[]; for(var i in poly)latlngs.push(this._map.layerPointToLatLng(
         L.point(poly[i][0],poly[i][1])));
       map_polygon = L.polygon([latlngs],{color:(overlaps)?'red':'yellow',fillOpacity:'0.5'});
-      map_polygon.data_to_show = JSON.stringify(poly);
+      map_polygon.data_to_show =data_to_show;
       this._polyLayer.addLayer(map_polygon);
     },
 
@@ -194,9 +196,7 @@ L.AutoLabeler = L.Evented.extend(
 
         if(this.options.showBBoxes){
            var poly = labelset[m]._item.getItemPoly();
-           //this.addPolyToLayer(poly,true);
-           //poly = geomEssentials.boundsToPointArray( labelset[m]._item._availableOrigins);
-           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps);
+           this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,labelset[m]._item.text);
         }
 
         labelset[m]._item.layer.feature.properties.alabel_offset=m+'__'+cOffset;

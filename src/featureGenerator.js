@@ -34,7 +34,7 @@ var featureGenerator = {
       var marker = L.circleMarker(pos);
       if(!marker.feature)marker.feature = {};
       if(!marker.feature.properties)marker.feature.properties = {};
-      marker.feature.properties.name = this._genWord(wordlength);
+      marker.feature.properties.name = this._genWord(wordlength) +'_'+i;
       this._pointsLayer.addLayer(marker);
     }
   }

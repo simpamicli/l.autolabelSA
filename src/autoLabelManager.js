@@ -102,7 +102,7 @@ var autoLabelManager = function(all_items){
     swapCandidateInLabelSetToNew:function(idx){
       var label_index = this.curset[idx].all_items_index();
       var new_candidate = candidateGenerator.computeLabelCandidate(label_index,this.items);
-      this.curset[idx]=new_candidate;
+      this.curset[idx]=new_candidate; //TOFIX - error is here
     },
 
     applyNewPosToOverlappedLabels:function(){
