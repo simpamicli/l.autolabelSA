@@ -46,7 +46,7 @@ var simulatedAnnealing =function(autoLabelMan,options) {
       this.options.minimizeTotalOverlappingArea=this.options.minimizeTotalOverlappingArea || false;
       this.options.debug=this.options.debug || true;
       this.options.allowBothSidesOfLine=this.options.allowBothSidesOfLine || true;
-      this.options.maxOverlapsForPair = this.options.maxOverlapsForPair || 50;
+      this.options.maxOverlapsForPair = this.options.maxOverlapsForPair || 200;
     },
 
     /**

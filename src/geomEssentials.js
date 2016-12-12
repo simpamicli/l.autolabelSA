@@ -363,9 +363,9 @@ clipPoly:function(poly1,poly2){
   @memberof geomEssentials#
   */
   movePolyByAdding:function(poly,pt2add) {
-    var res=poly.slice(0);
+    var res=[];
     for(var i=0;i<poly.length;i++){
-      res[i][0]+=pt2add.x; res[i][1]+=pt2add.y;
+      res.push([poly[i][0] + pt2add.x,poly[i][1] + pt2add.y]);    
     }
     return res;
   },

@@ -15,6 +15,7 @@ var candidateGenerator = {
     var randomX =item._availableOrigins.min.x + Math.random() * avOriginsSize.x;
     var randomY =item._availableOrigins.min.y + Math.random() * avOriginsSize.y;
     var candidate = itemFactory.candidatePosition(L.point(randomX,randomY - item.txSize.y),item);
+    candidate.poly();
     return candidate;
   },
 

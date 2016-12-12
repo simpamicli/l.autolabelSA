@@ -121,11 +121,11 @@ L.AutoLabeler = L.Evented.extend(
         }
         var annMan = new autoLabelManager(all_items);
         var annPerformer = new simulatedAnnealing(annMan,this.options.annealingOptions);
-        //annPerformer.perform(this._renderNodes,this);
-        annMan.getInitialRandomState();
+        annPerformer.perform(this._renderNodes,this);
+        /*annMan.getInitialRandomState();
         annPerformer.evaluateCurSet();
         annMan.markOveralppedLabels(true);
-        this._renderNodes(annMan.curset);
+        this._renderNodes(annMan.curset);*/
       }else{
         this._clearNodes();
       }
@@ -196,6 +196,8 @@ L.AutoLabeler = L.Evented.extend(
 
         if(this.options.showBBoxes){
            var poly = labelset[m]._item.getItemPoly();
+           if(labelset[m].wasSwapped)
+            labelset[m].offset_or_origin +" poly: " + JSON.stringify(labelset[m].poly());
            this.addPolyToLayer(labelset[m].poly(),labelset[m].overlaps,labelset[m]._item.text);
         }
 

@@ -1,5 +1,6 @@
 var candidateGenerator = require("./CandidateGenerator.js");
 var geomEssentials = require("./geomEssentials.js");
+var clone = require('./third_party/clone');
 
 var autoLabelManager = function(all_items){
   var result = {
@@ -19,8 +20,8 @@ var autoLabelManager = function(all_items){
     },
 
     saveOld:function(){
-      this._oldvalues = this.curvalues.slice(0);
-      this._oldset = this.curset.slice(0);
+      this._oldvalues = this.curvalues.slice(0); //TOFIX no deep clone actually
+      this._oldset =clone.clonePrototype(this.curset);
     },
 
     restoreOld:function(){
@@ -102,6 +103,7 @@ var autoLabelManager = function(all_items){
     swapCandidateInLabelSetToNew:function(idx){
       var label_index = this.curset[idx].all_items_index();
       var new_candidate = candidateGenerator.computeLabelCandidate(label_index,this.items);
+      new_candidate.wasSwapped=true;
       this.curset[idx]=new_candidate; //TOFIX - error is here
     },
 

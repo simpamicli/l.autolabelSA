@@ -15,7 +15,7 @@
   		style: vl_style
   		}
   ).addTo(map);
-  //gl.enableAutoLabel({zoomToStartLabel:11});
+  gl.enableAutoLabel({zoomToStartLabel:11});
 })();
 
 (function (){
